@@ -1,0 +1,101 @@
+{{ if .NeedsPrivileged }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: privileged-scc-use
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prefetcher-privileged
+subjects:
+  - kind: ServiceAccount
+    name: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: privileged-scc-use
+---
+{{ end }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Name }}
+      {{ if .NeedsPrivileged }}
+      annotations:
+        openshift.io/required-scc: privileged
+      {{ end }}
+    spec:
+      tolerations:
+        # Broad toleration to match stackrox collector.
+        - operator: "Exists"
+      initContainers:
+        - name: prefetch
+          image: {{ .Image }}:{{ .Version }}
+          args:
+            - "/image-prefetcher"
+            - "fetch"
+            {{ if .Secret }}
+            - "--docker-config=/tmp/pull-secret/.dockerconfigjson"
+            {{ end }}
+            - "--image-list-file=/tmp/list/images.txt"
+            {{ if .IsCRIO }}
+            - "--cri-socket=/tmp/cri/crio.sock"
+            {{ else }}
+            - "--cri-socket=/tmp/cri/containerd.sock"
+            {{ end }}
+          volumeMounts:
+            - name: cri-socket-dir
+              mountPath: "/tmp/cri"
+              readOnly: true
+            - name: image-list
+              mountPath: "/tmp/list"
+              readOnly: true
+            {{ if .Secret }}
+            - mountPath: /tmp/pull-secret
+              name: pull-secret
+              readOnly: true
+            {{ end }}
+          {{ if .NeedsPrivileged }}
+          securityContext:
+            privileged: true
+          {{ end }}
+      containers:
+        - name: sleep
+          image: {{ .Image }}:{{ .Version }}
+          args:
+            - "/image-prefetcher"
+            - "sleep"
+      volumes:
+        - name: cri-socket-dir
+          hostPath:
+            {{ if .IsCRIO }}
+            path: "/var/run/crio"
+            {{ else }}
+            path: "/var/run/containerd"
+            {{ end }}
+        - name: image-list
+          configMap:
+            name: {{ .Name }}
+        {{ if .Secret }}
+        - name: pull-secret
+          secret:
+            secretName: {{ .Secret }}
+        {{ end }}
