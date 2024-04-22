@@ -76,6 +76,7 @@ spec:
           securityContext:
             readOnlyRootFilesystem: true
           {{ if .NeedsPrivileged }}
+            allowPrivilegeEscalation: true
             privileged: true
           {{ end }}
       containers:
