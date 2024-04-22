@@ -73,8 +73,9 @@ spec:
               name: pull-secret
               readOnly: true
             {{ end }}
-          {{ if .NeedsPrivileged }}
           securityContext:
+            readOnlyRootFilesystem: true
+          {{ if .NeedsPrivileged }}
             privileged: true
           {{ end }}
       containers:
@@ -83,6 +84,8 @@ spec:
           args:
             - "/image-prefetcher"
             - "sleep"
+          securityContext:
+            readOnlyRootFilesystem: true
       volumes:
         - name: cri-socket-dir
           hostPath:
