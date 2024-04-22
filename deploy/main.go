@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"log"
 	"os"
 	"text/template"
 )
@@ -42,12 +43,8 @@ func main() {
 		IsCRIO:          isOcp,
 		NeedsPrivileged: isOcp,
 	}
-	tmpl, err := template.New("deployment").Parse(daemonSetTemplate)
-	if err != nil {
-		panic(err)
-	}
-	err = tmpl.Execute(os.Stdout, s)
-	if err != nil {
-		panic(err)
+	tmpl := template.Must(template.New("deployment").Parse(daemonSetTemplate))
+	if err := tmpl.Execute(os.Stdout, s); err != nil {
+		log.Fatal(err)
 	}
 }

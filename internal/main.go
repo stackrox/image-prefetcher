@@ -30,17 +30,17 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 
 	clientConn, err := grpc.DialContext(ctx, "unix://"+criSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to dial CRI socket %q: %w", criSocketPath, err)
 	}
 	client := criV1.NewImageServiceClient(clientConn)
 
 	if err := listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "before"); err != nil {
-		return err
+		return fmt.Errorf("failed to list images for debugging before pulling: %w", err)
 	}
 
 	kr := credentialprovider.BasicDockerKeyring{}
 	if err := loadPullSecret(logger, &kr, dockerConfigJSONPath); err != nil {
-		return err
+		return fmt.Errorf("failed to load image pull secrets: %w", err)
 	}
 
 	var wg sync.WaitGroup
@@ -59,7 +59,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 	}
 	wg.Wait()
 	logger.Info("pulling images finished")
-	return listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "after")
+	return fmt.Errorf("failed to list images for debugging before pulling: %w", listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "after"))
 }
 
 func listImagesForDebugging(ctx context.Context, logger *slog.Logger, client criV1.ImageServiceClient, timeout time.Duration, stage string) error {
@@ -71,7 +71,7 @@ func listImagesForDebugging(ctx context.Context, logger *slog.Logger, client cri
 	logger.DebugContext(ctx, "starting to list images")
 	imagesResp, err := client.ListImages(ctx, &criV1.ListImagesRequest{})
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to call ListImages: %w", err)
 	}
 	logger.DebugContext(ctx, "finished listing images")
 	for _, i := range imagesResp.Images {
@@ -87,7 +87,7 @@ func loadPullSecret(logger *slog.Logger, kr *credentialprovider.BasicDockerKeyri
 	}
 	f, err := os.ReadFile(dockerConfigJSONPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed read %q: %w", dockerConfigJSONPath, err)
 	}
 	dockerConfigJSON := credentialprovider.DockerConfigJSON{}
 	if err := json.Unmarshal(f, &dockerConfigJSON); err != nil {
