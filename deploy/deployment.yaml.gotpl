@@ -33,6 +33,7 @@ metadata:
   annotations:
     ignore-check.kube-linter.io/privilege-escalation-container: "Needs access to CRI socket."
     ignore-check.kube-linter.io/privileged-container: "Needs access to CRI socket."
+    ignore-check.kube-linter.io/run-as-non-root: "Needs access to CRI socket."
 spec:
   selector:
     matchLabels:
