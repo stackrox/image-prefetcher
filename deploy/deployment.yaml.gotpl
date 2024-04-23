@@ -65,6 +65,10 @@ spec:
             {{ else }}
             - "--cri-socket=/tmp/cri/containerd.sock"
             {{ end }}
+            resources:
+              requests:
+                cpu: "20m"
+                memory: "16Mi"
           volumeMounts:
             - name: cri-socket-dir
               mountPath: "/tmp/cri"
@@ -89,6 +93,10 @@ spec:
           args:
             - "/image-prefetcher"
             - "sleep"
+          resources:
+            requests:
+              cpu: "5m"
+              memory: "16Mi"
           securityContext:
             readOnlyRootFilesystem: true
       volumes:
