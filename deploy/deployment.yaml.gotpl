@@ -30,6 +30,8 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ .Name }}
+  annotations:
+    ignore-check.kube-linter.io/privileged: "Needs access to CRI socket."
 spec:
   selector:
     matchLabels:
