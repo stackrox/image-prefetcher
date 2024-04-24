@@ -65,10 +65,10 @@ spec:
             {{ else }}
             - "--cri-socket=/tmp/cri/containerd.sock"
             {{ end }}
-            resources:
-              requests:
-                cpu: "20m"
-                memory: "16Mi"
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "16Mi"
           volumeMounts:
             - name: cri-socket-dir
               mountPath: "/tmp/cri"
