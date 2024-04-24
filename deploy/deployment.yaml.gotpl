@@ -69,6 +69,9 @@ spec:
             requests:
               cpu: "20m"
               memory: "16Mi"
+            limits:
+              cpu: "1"
+              memory: "256Mi"
           volumeMounts:
             - name: cri-socket-dir
               mountPath: "/tmp/cri"
@@ -97,6 +100,9 @@ spec:
             requests:
               cpu: "5m"
               memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
           securityContext:
             readOnlyRootFilesystem: true
       volumes:
