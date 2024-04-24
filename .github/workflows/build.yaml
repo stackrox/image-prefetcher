@@ -1,0 +1,42 @@
+name: Go
+
+on: [push]
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+
+      - name: Verify
+        run: go mod verify
+
+      - name: Build
+        run: go build ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          install-mode: binary
+
+      - name: Prepare manifests for linting
+        run: |
+          mkdir manifests
+          go run deploy/main.go my-images v0.0.8 vanilla > manifests/vanilla.yaml
+          go run deploy/main.go my-images v0.0.8 ocp > manifests/ocp.yaml
+          go run deploy/main.go my-images v0.0.8 vanilla my-secret > manifests/vanilla-with-secret.yaml
+          go run deploy/main.go my-images v0.0.8 ocp my-secret > manifests/ocp-with-secret.yaml
+
+      - name: kube-linter
+        uses: stackrox/kube-linter-action@v1.0.4
+        with:
+          directory: manifests

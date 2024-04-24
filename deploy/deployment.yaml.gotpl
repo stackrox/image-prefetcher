@@ -1,0 +1,123 @@
+{{ if .NeedsPrivileged }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: privileged-scc-use
+rules:
+- apiGroups:
+  - security.openshift.io
+  resourceNames:
+  - privileged
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prefetcher-privileged
+subjects:
+  - kind: ServiceAccount
+    name: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: privileged-scc-use
+---
+{{ end }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Name }}
+  annotations:
+    ignore-check.kube-linter.io/privilege-escalation-container: "Needs access to CRI socket."
+    ignore-check.kube-linter.io/privileged-container: "Needs access to CRI socket."
+    ignore-check.kube-linter.io/run-as-non-root: "Needs access to CRI socket."
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Name }}
+      {{ if .NeedsPrivileged }}
+      annotations:
+        openshift.io/required-scc: privileged
+      {{ end }}
+    spec:
+      tolerations:
+        # Broad toleration to match stackrox collector.
+        - operator: "Exists"
+      initContainers:
+        - name: prefetch
+          image: {{ .Image }}:{{ .Version }}
+          args:
+            - "/image-prefetcher"
+            - "fetch"
+            {{ if .Secret }}
+            - "--docker-config=/tmp/pull-secret/.dockerconfigjson"
+            {{ end }}
+            - "--image-list-file=/tmp/list/images.txt"
+            {{ if .IsCRIO }}
+            - "--cri-socket=/tmp/cri/crio.sock"
+            {{ else }}
+            - "--cri-socket=/tmp/cri/containerd.sock"
+            {{ end }}
+          resources:
+            requests:
+              cpu: "20m"
+              memory: "16Mi"
+            limits:
+              cpu: "1"
+              memory: "256Mi"
+          volumeMounts:
+            - name: cri-socket-dir
+              mountPath: "/tmp/cri"
+              readOnly: true
+            - name: image-list
+              mountPath: "/tmp/list"
+              readOnly: true
+            {{ if .Secret }}
+            - mountPath: /tmp/pull-secret
+              name: pull-secret
+              readOnly: true
+            {{ end }}
+          securityContext:
+            readOnlyRootFilesystem: true
+          {{ if .NeedsPrivileged }}
+            allowPrivilegeEscalation: true
+            privileged: true
+          {{ end }}
+      containers:
+        - name: sleep
+          image: {{ .Image }}:{{ .Version }}
+          args:
+            - "/image-prefetcher"
+            - "sleep"
+          resources:
+            requests:
+              cpu: "5m"
+              memory: "16Mi"
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+          securityContext:
+            readOnlyRootFilesystem: true
+      volumes:
+        - name: cri-socket-dir
+          hostPath:
+            {{ if .IsCRIO }}
+            path: "/var/run/crio"
+            {{ else }}
+            path: "/var/run/containerd"
+            {{ end }}
+        - name: image-list
+          configMap:
+            name: {{ .Name }}
+        {{ if .Secret }}
+        - name: pull-secret
+          secret:
+            secretName: {{ .Secret }}
+        {{ end }}
