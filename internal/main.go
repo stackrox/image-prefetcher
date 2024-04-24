@@ -59,7 +59,10 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 	}
 	wg.Wait()
 	logger.Info("pulling images finished")
-	return fmt.Errorf("failed to list images for debugging before pulling: %w", listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "after"))
+	if err := listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "after"); err != nil {
+		return fmt.Errorf("failed to list images for debugging after pulling: %w", err)
+	}
+	return nil
 }
 
 func listImagesForDebugging(ctx context.Context, logger *slog.Logger, client criV1.ImageServiceClient, timeout time.Duration, stage string) error {
