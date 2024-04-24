@@ -11,6 +11,10 @@ require (
 	k8s.io/kubernetes v1.29.3
 )
 
+// This set of replaces is needed to use k8s.io/kubernetes
+// See https://github.com/kubernetes/kubernetes/issues/79384#issuecomment-505627280
+// for more background.
+// TODO(porridge): upgrade to 1.30.x and document the process
 replace (
 	k8s.io/cli-runtime => k8s.io/cli-runtime v1.29.3
 	k8s.io/cloud-provider => k8s.io/cloud-provider v1.29.3
