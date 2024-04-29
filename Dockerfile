@@ -1,3 +1,3 @@
 FROM scratch
 COPY image-prefetcher /
-CMD ["image-prefetcher"]
+CMD ["/image-prefetcher"]
