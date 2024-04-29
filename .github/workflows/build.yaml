@@ -19,11 +19,10 @@ jobs:
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
           tags: |
-            type=schedule
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
             type=sha
 
       - name: Setup Go
