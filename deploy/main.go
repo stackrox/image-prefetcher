@@ -16,8 +16,7 @@ type settings struct {
 	NeedsPrivileged bool
 }
 
-// TODO(porridge): change to a dedicated org once it's created.
-const imageRepo = "quay.io/mowsiany/image-prefetcher"
+const imageRepo = "quay.io/stackrox-io/image-prefetcher"
 
 //go:embed deployment.yaml.gotpl
 var daemonSetTemplate string

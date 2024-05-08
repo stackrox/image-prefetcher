@@ -54,7 +54,6 @@ spec:
         - name: prefetch
           image: {{ .Image }}:{{ .Version }}
           args:
-            - "/image-prefetcher"
             - "fetch"
             {{ if .Secret }}
             - "--docker-config=/tmp/pull-secret/.dockerconfigjson"
@@ -94,7 +93,6 @@ spec:
         - name: sleep
           image: {{ .Image }}:{{ .Version }}
           args:
-            - "/image-prefetcher"
             - "sleep"
           resources:
             requests:
