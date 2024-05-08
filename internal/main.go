@@ -9,10 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/stackrox/image-prefetcher/internal/credentialprovider"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	criV1 "k8s.io/cri-api/pkg/apis/runtime/v1"
-	"k8s.io/kubernetes/pkg/credentialprovider"
 )
 
 type TimingConfig struct {
