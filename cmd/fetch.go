@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/stackrox/image-prefetcher/internal"
+	"github.com/stackrox/image-prefetcher/internal/logging"
 
 	"github.com/spf13/cobra"
 )
@@ -19,11 +19,7 @@ var fetchCmd = &cobra.Command{
 
 It talks to Container Runtime Interface API to pull images in parallel, with retries.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		opts := &slog.HandlerOptions{AddSource: true}
-		if debug {
-			opts.Level = slog.LevelDebug
-		}
-		logger := slog.New(slog.NewTextHandler(os.Stderr, opts))
+		logger := logging.GetLogger()
 		timing := internal.TimingConfig{
 			ImageListTimeout:          imageListTimeout,
 			InitialPullAttemptTimeout: initialPullAttemptTimeout,
@@ -45,7 +41,6 @@ var (
 	criSocket                 string
 	dockerConfigJSONPath      string
 	imageListFile             string
-	debug                     bool
 	imageListTimeout          = time.Minute
 	initialPullAttemptTimeout = 30 * time.Second
 	maxPullAttemptTimeout     = 5 * time.Minute
@@ -56,11 +51,11 @@ var (
 
 func init() {
 	rootCmd.AddCommand(fetchCmd)
+	logging.AddFlags(fetchCmd.Flags())
 
 	fetchCmd.Flags().StringVar(&criSocket, "cri-socket", "/run/containerd/containerd.sock", "Path to CRI UNIX socket.")
 	fetchCmd.Flags().StringVar(&dockerConfigJSONPath, "docker-config", "", "Path to docker config json file.")
 	fetchCmd.Flags().StringVar(&imageListFile, "image-list-file", "", "Path to text file containing images to pull (one per line).")
-	fetchCmd.Flags().BoolVar(&debug, "debug", false, "Whether to enable debug logging.")
 
 	fetchCmd.Flags().DurationVar(&imageListTimeout, "image-list-timeout", imageListTimeout, "Timeout for image list calls (for debugging).")
 	fetchCmd.Flags().DurationVar(&initialPullAttemptTimeout, "initial-pull-attempt-timeout", initialPullAttemptTimeout, "Timeout for initial image pull call. Each subsequent attempt doubles it until max.")

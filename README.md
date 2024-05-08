@@ -11,12 +11,12 @@ Talks directly to Container Runtime Interface ([CRI](https://kubernetes.io/docs/
 ### `image-prefetcher`
 
 - main binary,
-- meant to be run in pods of a DaemonSet,
 - shipped as an OCI image,
 - provides two subcommands:
-  - `fetch`: runs the actual image pulls via CRI, meant to run as an init container,
+  - `fetch`: runs the actual image pulls via CRI, meant to run as an init container
+    of DaemonSet pods.
     Requires access to the CRI UNIX domain socket from the host.
-  - `sleep`: just sleeps forever, meant to run as the main container,
+  - `sleep`: just sleeps forever, meant to run as the main container of DaemonSet pods.
 
 ### `deploy`
 
@@ -29,21 +29,22 @@ Talks directly to Container Runtime Interface ([CRI](https://kubernetes.io/docs/
 
    You can run many instances independently.
 
-   It requires a few arguments:
-   - **name** of the instance.
-     This also determines the name of a `ConfigMap` supplying names of images to fetch.
-   - `image-prefetcher` OCI image **version**. See [list of existing tags](https://quay.io/repository/mowsiany/image-prefetcher?tab=tags).
-   - **cluster flavor**. Currently one of:
+   It requires a single positional argument for the **name** of the instance.
+   This also determines the name of a `ConfigMap` supplying names of images to fetch.
+
+   It also accepts a few optional flags:
+   - `--version`: `image-prefetcher` OCI image tag. See [list of existing tags](https://quay.io/repository/mowsiany/image-prefetcher?tab=tags).
+   - `--k8s-flavor` depending on the cluster. Currently one of:
      - `vanilla`: a generic Kubernetes distribution without additional restrictions.
      - `ocp`: OpenShift, which requires explicitly granting special privileges.
-   - optional **image pull `Secret` name**. Required if the images are not pullable anonymously.
+   - `--secret`: image pull `Secret` name. Required if the images are not pullable anonymously.
      This image pull secret should be usable for all images fetched by the given instance.
      If provided, it must be of type `kubernetes.io/dockerconfigjson` and exist in the same namespace.
 
    Example:
 
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@main my-images v0.0.8 vanilla > manifest.yaml
+   go run github.com/stackrox/image-prefetcher/deploy@master my-images v0.0.8 vanilla > manifest.yaml
    ```
 
 2. Prepare an image list. This should be a plain text file with one image name per line.

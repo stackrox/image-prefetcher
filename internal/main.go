@@ -29,13 +29,13 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 	ctx, cancel := context.WithTimeout(context.Background(), timing.OverallTimeout)
 	defer cancel()
 
-	clientConn, err := grpc.DialContext(ctx, "unix://"+criSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	criConn, err := grpc.DialContext(ctx, "unix://"+criSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to dial CRI socket %q: %w", criSocketPath, err)
 	}
-	client := criV1.NewImageServiceClient(clientConn)
+	criClient := criV1.NewImageServiceClient(criConn)
 
-	if err := listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "before"); err != nil {
+	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "before"); err != nil {
 		return fmt.Errorf("failed to list images for debugging before pulling: %w", err)
 	}
 
@@ -55,12 +55,12 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 				},
 				Auth: auth,
 			}
-			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, client, request, timing)
+			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, request, timing)
 		}
 	}
 	wg.Wait()
 	logger.Info("pulling images finished")
-	if err := listImagesForDebugging(ctx, logger, client, timing.ImageListTimeout, "after"); err != nil {
+	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "after"); err != nil {
 		return fmt.Errorf("failed to list images for debugging after pulling: %w", err)
 	}
 	return nil
