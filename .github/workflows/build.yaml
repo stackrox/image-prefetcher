@@ -53,6 +53,10 @@ jobs:
           ./deploy/deploy --k8s-flavor ocp my-images > manifests/ocp.yaml
           ./deploy/deploy --k8s-flavor vanilla --secret my-secret my-images > manifests/vanilla-with-secret.yaml
           ./deploy/deploy --k8s-flavor ocp --secret my-secret my-images > manifests/ocp-with-secret.yaml
+          ./deploy/deploy --k8s-flavor vanilla --collect-metrics my-images > manifests/vanilla-metrics.yaml
+          ./deploy/deploy --k8s-flavor ocp --collect-metrics my-images > manifests/ocp-metrics.yaml
+          ./deploy/deploy --k8s-flavor vanilla --secret my-secret --collect-metrics my-images > manifests/vanilla-with-secret-metrics.yaml
+          ./deploy/deploy --k8s-flavor ocp --secret my-secret --collect-metrics my-images > manifests/ocp-with-secret-metrics.yaml
 
       - name: kubeconform
         run: |

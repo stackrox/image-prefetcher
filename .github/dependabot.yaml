@@ -22,3 +22,9 @@ updates:
       interval: 'weekly'
       day: 'tuesday'
     open-pull-requests-limit: 3
+  - package-ecosystem: 'gomod'
+    directory: '/internal/metrics/tools'
+    schedule:
+      interval: 'weekly'
+      day: 'tuesday'
+    open-pull-requests-limit: 3

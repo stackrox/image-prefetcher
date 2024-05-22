@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"github.com/stackrox/image-prefetcher/internal/credentialprovider"
+	metricsProto "github.com/stackrox/image-prefetcher/internal/metrics/gen"
+	"github.com/stackrox/image-prefetcher/internal/metrics/submitter"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	criV1 "k8s.io/cri-api/pkg/apis/runtime/v1"
@@ -25,7 +28,7 @@ type TimingConfig struct {
 	MaxPullAttemptDelay       time.Duration
 }
 
-func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string, timing TimingConfig, imageNames ...string) error {
+func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string, timing TimingConfig, metricsEndpoint string, imageNames ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timing.OverallTimeout)
 	defer cancel()
 
@@ -37,6 +40,16 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 
 	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "before"); err != nil {
 		return fmt.Errorf("failed to list images for debugging before pulling: %w", err)
+	}
+
+	var metricsSink *submitter.Submitter
+	if metricsEndpoint != "" {
+		metricsConn, err := grpc.DialContext(ctx, metricsEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return fmt.Errorf("failed to dial metrics endpoint %q: %w", metricsEndpoint, err)
+		}
+		metricsSink = submitter.NewSubmitter(logger, metricsProto.NewMetricsClient(metricsConn))
+		go metricsSink.Run(ctx)
 	}
 
 	kr := credentialprovider.BasicDockerKeyring{}
@@ -55,11 +68,12 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 				},
 				Auth: auth,
 			}
-			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, request, timing)
+			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, metricsSink.Chan(), imageName, request, timing)
 		}
 	}
 	wg.Wait()
 	logger.Info("pulling images finished")
+	metricsSink.Await()
 	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "after"); err != nil {
 		return fmt.Errorf("failed to list images for debugging after pulling: %w", err)
 	}
@@ -123,7 +137,7 @@ func getAuthsForImage(ctx context.Context, logger *slog.Logger, kr credentialpro
 	return auths
 }
 
-func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, request *criV1.PullImageRequest, timing TimingConfig) {
+func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, metricsSink chan<- *metricsProto.Result, name string, request *criV1.PullImageRequest, timing TimingConfig) {
 	defer wg.Done()
 	attemptTimeout := timing.InitialPullAttemptTimeout
 	delay := timing.InitialPullAttemptDelay
@@ -136,9 +150,12 @@ func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.Wai
 		cancel()
 		if err == nil {
 			logger.InfoContext(ctx, "image pulled successfully", "response", response, "elapsed", elapsed)
+			sizeBytes := getImageSize(ctx, logger, client, response)
+			noteSuccess(metricsSink, name, start, elapsed, sizeBytes)
 			return
 		}
 		logger.ErrorContext(ctx, "image failed to pull", "error", err, "timeout", attemptTimeout, "elapsed", elapsed)
+		noteFailure(metricsSink, name, start, elapsed, err)
 		if ctx.Err() != nil {
 			logger.ErrorContext(ctx, "not retrying any more", "error", ctx.Err())
 			return
@@ -148,5 +165,43 @@ func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.Wai
 		logger.InfoContext(ctx, "sleeping before retry", "timeout", delay)
 		time.Sleep(delay)
 		delay = delay * 2
+	}
+}
+
+func getImageSize(ctx context.Context, logger *slog.Logger, client criV1.ImageServiceClient, response *criV1.PullImageResponse) uint64 {
+	imageStatus, err := client.ImageStatus(ctx, &criV1.ImageStatusRequest{
+		Image: &criV1.ImageSpec{
+			Image: response.ImageRef,
+		},
+	})
+	if err != nil {
+		logger.WarnContext(ctx, "failed to obtain pulled image status", "image", response.ImageRef, "error", err)
+		return 0
+	}
+	return imageStatus.GetImage().GetSize_()
+}
+
+func noteSuccess(sink chan<- *metricsProto.Result, name string, start time.Time, elapsed time.Duration, sizeBytes uint64) {
+	if sink == nil {
+		return
+	}
+	sink <- &metricsProto.Result{
+		AttemptId:  uuid.NewString(),
+		StartedAt:  start.Unix(),
+		Image:      name,
+		DurationMs: uint64(elapsed.Milliseconds()),
+		SizeBytes:  sizeBytes,
+	}
+}
+func noteFailure(sink chan<- *metricsProto.Result, name string, start time.Time, elapsed time.Duration, err error) {
+	if sink == nil {
+		return
+	}
+	sink <- &metricsProto.Result{
+		AttemptId:  uuid.NewString(),
+		StartedAt:  start.Unix(),
+		Image:      name,
+		DurationMs: uint64(elapsed.Milliseconds()),
+		Error:      err.Error(),
 	}
 }

@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "github.com/stackrox/image-prefetcher/internal/metrics;gen";
+
+message Result {
+  string attempt_id = 1;
+  int64 started_at = 2;
+  string image = 3;
+  string error = 4;
+  uint64 duration_ms = 5;
+  string node = 6;
+  uint64 size_bytes = 7;
+}
+
+message Empty {}
+
+service Metrics {
+  rpc Submit(stream Result) returns (Empty) {}
+}

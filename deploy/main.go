@@ -17,6 +17,7 @@ type settings struct {
 	Secret          string
 	IsCRIO          bool
 	NeedsPrivileged bool
+	CollectMetrics  bool
 }
 
 const (
@@ -32,15 +33,17 @@ const imageRepo = "quay.io/stackrox-io/image-prefetcher"
 var deploymentTemplate string
 
 var (
-	version   string
-	k8sFlavor k8sFlavorType
-	secret    string
+	version        string
+	k8sFlavor      k8sFlavorType
+	secret         string
+	collectMetrics bool
 )
 
 func init() {
 	flag.StringVar(&version, "version", "v0.1.0", "Version of image prefetcher OCI image.")
 	flag.TextVar(&k8sFlavor, "k8s-flavor", flavor(vanillaFlavor), fmt.Sprintf("Kubernetes flavor. Accepted values: %s", strings.Join(allFlavors, ",")))
 	flag.StringVar(&secret, "secret", "", "Kubernetes image pull Secret to use when pulling.")
+	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
 }
 
 func main() {
@@ -59,6 +62,7 @@ func main() {
 		Secret:          secret,
 		IsCRIO:          isOcp,
 		NeedsPrivileged: isOcp,
+		CollectMetrics:  collectMetrics,
 	}
 	tmpl := template.Must(template.New("deployment").Parse(deploymentTemplate))
 	if err := tmpl.Execute(os.Stdout, s); err != nil {

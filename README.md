@@ -6,17 +6,22 @@ Talks directly to Container Runtime Interface ([CRI](https://kubernetes.io/docs/
 - fetch all images on all nodes in parallel,
 - retry pulls with increasingly longer timeouts. This prevents getting stuck on stalled connections to image registry.
 
+It also optionally collects each pull attempt's duration and result.
+
 ## Architecture
 
 ### `image-prefetcher`
 
 - main binary,
 - shipped as an OCI image,
-- provides two subcommands:
+- provides three subcommands:
   - `fetch`: runs the actual image pulls via CRI, meant to run as an init container
     of DaemonSet pods.
     Requires access to the CRI UNIX domain socket from the host.
   - `sleep`: just sleeps forever, meant to run as the main container of DaemonSet pods.
+  - `aggregate-metrics`: runs a gRPC server which collects data points pushed by the
+    `fetch` pods, and makes the data available for download over HTTP.
+    Meant to run as a standalone pod.
 
 ### `deploy`
 
@@ -40,6 +45,7 @@ Talks directly to Container Runtime Interface ([CRI](https://kubernetes.io/docs/
    - `--secret`: image pull `Secret` name. Required if the images are not pullable anonymously.
      This image pull secret should be usable for all images fetched by the given instance.
      If provided, it must be of type `kubernetes.io/dockerconfigjson` and exist in the same namespace.
+   - `--collect-metrics`: if the image pull metrics should be collected.
 
    Example:
 
@@ -70,6 +76,26 @@ Talks directly to Container Runtime Interface ([CRI](https://kubernetes.io/docs/
    ```
    kubectl logs -n prefetch-images daemonset/my-images -c prefetch
    ```
+
+6. If metrics collection was requested, wait for the endpoint to appear, and fetch them:
+   ```
+   attempt=0
+   service="service/my-images-metrics"
+   while [[ -z $(kubectl -n "${ns}" get "${service}" -o jsonpath="{.status.loadBalancer.ingress}" 2>/dev/null) ]]; do
+       if [ "$attempt" -lt "10" ]; then
+           echo "Waiting for ${service} to obtain endpoint ..."
+           ((attempt++))
+           sleep 10
+       else
+           echo "Timeout waiting for ${service} to obtain endpoint!"
+           exit 1
+       fi
+   done
+   endpoint="$(kubectl -n "${ns}" get "${service}" -o json | jq -r '.status.loadBalancer.ingress[] | .ip')"
+   curl "http://${endpoint}:8080/metrics" | jq
+   ```
+   
+   See the [Result](internal/metrics/metrics.proto) message definition for a list of fields.
 
 ### Customization
 
