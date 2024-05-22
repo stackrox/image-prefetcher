@@ -54,6 +54,10 @@ jobs:
           ./deploy/deploy --k8s-flavor vanilla --secret my-secret my-images > manifests/vanilla-with-secret.yaml
           ./deploy/deploy --k8s-flavor ocp --secret my-secret my-images > manifests/ocp-with-secret.yaml
 
+      - name: kubeconform
+        run: |
+          make -C deploy kubeconform MANIFESTS=`pwd`/manifests
+
       - name: kube-linter
         uses: stackrox/kube-linter-action@v1.0.5
         with:
