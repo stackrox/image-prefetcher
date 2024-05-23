@@ -11,6 +11,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Run ShellCheck on GHA config
+        uses: saleor/shellcheck-gha@v0
+
       - name: Prepare OCI metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -60,7 +63,7 @@ jobs:
 
       - name: kubeconform
         run: |
-          make -C deploy kubeconform MANIFESTS=`pwd`/manifests
+          make -C deploy kubeconform MANIFESTS="$(pwd)/manifests"
 
       - name: kube-linter
         uses: stackrox/kube-linter-action@v1.0.5
@@ -86,3 +89,117 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  e2e:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      CLUSTER_NAME: img-prefetch-${{ github.run_id }}
+      INFRA_TOKEN: ${{ secrets.INFRA_TOKEN }}
+      NS: prefetch
+      NAME: basic
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Authenticate against GCP
+        uses: "google-github-actions/auth@v2"
+        with:
+          credentials_json: "${{ secrets.GCP_IMAGE_PREFETCHER_CI_SA }}"
+
+      - name: Install GKE auth plugin
+        uses: "google-github-actions/setup-gcloud@v2"
+        with:
+          install_components: "gke-gcloud-auth-plugin"
+
+      - name: Install infractl
+        uses: stackrox/actions/infra/install-infractl@main
+
+      - name: Create GKE cluster
+        uses: stackrox/actions/infra/create-cluster@v1.0.14
+        with:
+          token: ${{ secrets.INFRA_TOKEN }}
+          flavor: gke-default
+          name: img-prefetch-${{ github.run_id }}
+          lifespan: 1h
+          args: nodes=2
+          wait: "true"
+          no-slack: "true"
+
+      - name: Setup environment from cluster artifacts
+        env:
+          ARTIFACTS_DIR: ${{ runner.temp }}/gke-artifacts
+        run: |
+          # Fetch the artifacts for the GKE cluster.
+          infractl artifacts --download-dir="${ARTIFACTS_DIR}" "${CLUSTER_NAME}" >/dev/null
+          # Set both URL and admin password.
+          KUBECONFIG="${ARTIFACTS_DIR}/kubeconfig"
+          echo "KUBECONFIG=$KUBECONFIG" >> "$GITHUB_ENV"
+
+      - name: Build the deploy tool
+        run: go build -C deploy .
+
+      - name: Deploy prefetcher
+        run: |
+          set -e
+         
+          echo busybox:latest >> images.txt
+          echo debian:sid >> images.txt
+
+          kubectl create --dry-run=client -o yaml --namespace="$NS" configmap "${NAME}" --from-file="images.txt=images.txt" > manifest.yaml
+          echo --- >> manifest.yaml
+          ./deploy/deploy \
+            --version="sha-$(git rev-parse --short HEAD)" \
+            --k8s-flavor=vanilla \
+            --collect-metrics \
+            "${NAME}" >> manifest.yaml
+          
+          kubectl create namespace "$NS"
+          kubectl apply -n "$NS" -f manifest.yaml
+
+      - name: Wait for prefetcher to finish
+        run: |
+          set -e
+
+          info() { echo "$@"; }
+          die() { info "$@"; exit 1; }
+          
+          attempt=0
+          service="service/${NAME}-metrics"
+          while [[ -z $(kubectl -n "${NS}" get "${service}" -o jsonpath="{.status.loadBalancer.ingress}" 2>/dev/null) ]]; do
+            if [ "$attempt" -lt "10" ]; then
+              info "Waiting for ${service} to obtain endpoint ..."
+              attempt=$((attempt+1))
+              sleep 10
+            else
+              die "ERROR: Timeout waiting for ${service} to obtain endpoint!"
+            fi
+          done
+          
+          endpoint="$(kubectl -n "${NS}" get "${service}" -o json | jq -r '.status.loadBalancer.ingress[] | .ip')"
+          curl --silent --show-error --fail --retry 3 --retry-connrefused "http://${endpoint}:8080/metrics" > metrics.json
+
+      - name: Dump metrics
+        run: jq . metrics.json
+
+      - name: Dump debug info
+        if: always()
+        run: |
+          kubectl -n "$NS" get -o yaml daemonsets,pods,services,roles,rolebindings
+          kubectl -n "$NS" get events
+          kubectl -n "$NS" logs -l app=basic-metrics --all-containers=true --ignore-errors=true --tail=-1
+          kubectl -n "$NS" logs -l app=basic-metrics --all-containers=true --ignore-errors=true --tail=-1 --previous=true
+          kubectl -n "$NS" logs -l app=basic --all-containers=true --ignore-errors=true --tail=-1
+          kubectl -n "$NS" logs -l app=basic --all-containers=true --ignore-errors=true --tail=-1 --previous=true
+
+      - name: Teardown cluster
+        if: always()
+        env:
+          INFRA_TOKEN: ${{ secrets.INFRA_TOKEN }}
+        run: |
+          infractl delete "${CLUSTER_NAME}" || echo "Failed to remove the infra cluster"
