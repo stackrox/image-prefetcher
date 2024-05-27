@@ -17,6 +17,7 @@ type Submitter struct {
 	done    chan struct{}
 	client  gen.MetricsClient
 	logger  *slog.Logger
+	timer   backoff.Timer // for testing
 }
 
 // NewSubmitter creates a new submitter object.
@@ -38,11 +39,11 @@ func (s *Submitter) Chan() chan<- *gen.Result {
 }
 
 // Run accepts metrics on the channel and submits them to the client passed to constructor until Await is called.
-func (s *Submitter) Run(ctx context.Context) {
+func (s *Submitter) Run(ctx context.Context) (err error) {
 	defer func() { s.done <- struct{}{} }()
-	hostName, err := os.Hostname()
-	if err != nil {
-		s.logger.WarnContext(ctx, "could not obtain hostname", "error", err)
+	hostName, hostErr := os.Hostname()
+	if hostErr != nil {
+		s.logger.WarnContext(ctx, "could not obtain hostname", "error", hostErr)
 		hostName = "unknown"
 	}
 
@@ -53,31 +54,34 @@ func (s *Submitter) Run(ctx context.Context) {
 		metrics = append(metrics, metric)
 	}
 
-	if err = s.submit(ctx, metrics); err == nil {
-		s.logger.InfoContext(ctx, "metrics submitted")
-		return
-	}
-	s.logger.ErrorContext(ctx, "metric Submit RPC failed, retrying", "error", err)
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 10 * time.Second
-	b.MaxElapsedTime = 0
-	ticker := backoff.NewTicker(backoff.WithContext(b, ctx))
+	ticker := newTicker(ctx, s.timer)
 	defer ticker.Stop()
+
 	for {
 		select {
-		case <-ctx.Done():
-			if ctx.Err() != nil {
-				s.logger.ErrorContext(ctx, "giving up retrying metrics submission", "error", ctx.Err())
-			}
-			return
 		case <-ticker.C:
 			if err = s.submit(ctx, metrics); err == nil {
 				s.logger.InfoContext(ctx, "metrics submitted")
 				return
 			}
 			s.logger.ErrorContext(ctx, "metric Submit RPC failed, retrying", "error", err)
+		case <-ctx.Done():
+			if ctx.Err() != nil {
+				s.logger.ErrorContext(ctx, "giving up retrying metrics submission", "error", ctx.Err())
+				err = ctx.Err()
+			}
+			return
 		}
 	}
+}
+
+// newTicker returns a ticker that ticks once immediately, and then backs off exponentially forever.
+// Caller is responsible for calling Stop() on it eventually.
+func newTicker(ctx context.Context, timer backoff.Timer) *backoff.Ticker {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = 10 * time.Second
+	b.MaxElapsedTime = 0
+	return backoff.NewTickerWithTimer(backoff.WithContext(b, ctx), timer)
 }
 
 // Await signals the goroutine running Run that no more metrics will be sent on the channel.

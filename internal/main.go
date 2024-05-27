@@ -49,7 +49,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 			return fmt.Errorf("failed to dial metrics endpoint %q: %w", metricsEndpoint, err)
 		}
 		metricsSink = submitter.NewSubmitter(logger, metricsProto.NewMetricsClient(metricsConn))
-		go metricsSink.Run(ctx)
+		go func() { _ = metricsSink.Run(ctx) }() // returned error is for testing, sink already handles errors
 	}
 
 	kr := credentialprovider.BasicDockerKeyring{}
