@@ -13,28 +13,33 @@ import (
 )
 
 type Submitter struct {
-	c      chan *gen.Result
-	done   chan struct{}
-	client gen.MetricsClient
-	logger *slog.Logger
+	channel chan *gen.Result
+	done    chan struct{}
+	client  gen.MetricsClient
+	logger  *slog.Logger
 }
 
+// NewSubmitter creates a new submitter object.
 func NewSubmitter(logger *slog.Logger, client gen.MetricsClient) *Submitter {
 	return &Submitter{
-		c:      make(chan *gen.Result, 1),
-		done:   make(chan struct{}),
-		client: client,
-		logger: logger,
+		channel: make(chan *gen.Result, 1),
+		done:    make(chan struct{}),
+		client:  client,
+		logger:  logger,
 	}
 }
 
+// Chan returns a channel on which metrics can be provided to the submitter.
+func (s *Submitter) Chan() chan<- *gen.Result {
+	if s == nil {
+		return nil
+	}
+	return s.channel
+}
+
+// Run accepts metrics on the channel and submits them to the client passed to constructor until Await is called.
 func (s *Submitter) Run(ctx context.Context) {
 	defer func() { s.done <- struct{}{} }()
-	if s.client == nil {
-		for range s.c {
-		}
-		return
-	}
 	hostName, err := os.Hostname()
 	if err != nil {
 		s.logger.WarnContext(ctx, "could not obtain hostname", "error", err)
@@ -42,7 +47,7 @@ func (s *Submitter) Run(ctx context.Context) {
 	}
 
 	var metrics []*gen.Result
-	for metric := range s.c {
+	for metric := range s.channel {
 		metric.Node = hostName
 		s.logger.DebugContext(ctx, "metric received", "metric", metric)
 		metrics = append(metrics, metric)
@@ -58,23 +63,30 @@ func (s *Submitter) Run(ctx context.Context) {
 	b.MaxElapsedTime = 0
 	ticker := backoff.NewTicker(backoff.WithContext(b, ctx))
 	defer ticker.Stop()
-	for range ticker.C {
-		if ctx.Err() != nil {
-			s.logger.ErrorContext(ctx, "giving up retrying metrics submission", "error", ctx.Err())
-		}
-		if err = s.submit(ctx, metrics); err == nil {
-			s.logger.InfoContext(ctx, "metrics submitted")
+	for {
+		select {
+		case <-ctx.Done():
+			if ctx.Err() != nil {
+				s.logger.ErrorContext(ctx, "giving up retrying metrics submission", "error", ctx.Err())
+			}
 			return
+		case <-ticker.C:
+			if err = s.submit(ctx, metrics); err == nil {
+				s.logger.InfoContext(ctx, "metrics submitted")
+				return
+			}
+			s.logger.ErrorContext(ctx, "metric Submit RPC failed, retrying", "error", err)
 		}
-		s.logger.ErrorContext(ctx, "metric Submit RPC failed, retrying", "error", err)
 	}
 }
 
+// Await signals the goroutine running Run that no more metrics will be sent on the channel.
+// Then it waits for that goroutine to submit them (with retries).
 func (s *Submitter) Await() {
 	if s == nil {
 		return
 	}
-	close(s.c)
+	close(s.channel)
 	s.logger.Info("waiting for metrics to be submitted")
 	<-s.done
 }
@@ -93,11 +105,4 @@ func (s *Submitter) submit(ctx context.Context, metrics []*gen.Result) error {
 		return fmt.Errorf("finishing metric Submit RPC failed: %w", err)
 	}
 	return nil
-}
-
-func (s *Submitter) Chan() chan<- *gen.Result {
-	if s == nil {
-		return nil
-	}
-	return s.c
 }

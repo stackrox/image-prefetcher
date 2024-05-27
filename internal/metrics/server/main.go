@@ -49,11 +49,13 @@ func (s *metricsServer) ServeHTTP(writer http.ResponseWriter, _ *http.Request) {
 	resp, err := json.Marshal(s.currentMetrics())
 	if err != nil {
 		s.logger.Error("failed to marshal metrics", "error", err)
-		writer.WriteHeader(http.StatusInternalServerError)
-		_, _ = writer.Write([]byte(err.Error()))
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, _ = writer.Write(resp)
+	_, err = writer.Write(resp)
+	if err != nil {
+		s.logger.Error("failed to write HTTP metrics response", "error", err)
+	}
 }
 
 func (s *metricsServer) currentMetrics() []*gen.Result {
