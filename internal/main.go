@@ -32,7 +32,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 	ctx, cancel := context.WithTimeout(context.Background(), timing.OverallTimeout)
 	defer cancel()
 
-	criConn, err := grpc.DialContext(ctx, "unix://"+criSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	criConn, err := grpc.NewClient("unix://"+criSocketPath, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return fmt.Errorf("failed to dial CRI socket %q: %w", criSocketPath, err)
 	}
@@ -44,7 +44,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 
 	var metricsSink *submitter.Submitter
 	if metricsEndpoint != "" {
-		metricsConn, err := grpc.DialContext(ctx, metricsEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		metricsConn, err := grpc.NewClient(metricsEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			return fmt.Errorf("failed to dial metrics endpoint %q: %w", metricsEndpoint, err)
 		}
