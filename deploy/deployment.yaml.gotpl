@@ -26,6 +26,54 @@ roleRef:
   name: privileged-scc-use
 ---
 {{ end }}
+{{ if .CollectMetrics }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Name }}-metrics
+  labels:
+    app: {{ .Name }}-metrics
+spec:
+  containers:
+  - name: aggregator
+    image: {{ .Image }}:{{ .Version }}
+    args:
+    - "aggregate-metrics"
+    - "--debug"
+    ports:
+    - containerPort: 8443
+      name: grpc
+    - containerPort: 8080
+      name: http
+    resources:
+      requests:
+        cpu: "5m"
+        memory: "16Mi"
+      limits:
+        cpu: "100m"
+        memory: "64Mi"
+    securityContext:
+      readOnlyRootFilesystem: true
+      runAsUser: 1000
+      runAsNonRoot: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Name }}-metrics
+spec:
+  ports:
+  - name: grpc
+    port: 8443
+    protocol: TCP
+  - name: http
+    port: 8080
+    protocol: TCP
+  selector:
+    app: {{ .Name }}-metrics
+  type: LoadBalancer
+---
+{{ end }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -63,6 +111,9 @@ spec:
         - "--cri-socket=/tmp/cri/crio.sock"
         {{ else }}
         - "--cri-socket=/tmp/cri/containerd.sock"
+        {{ end }}
+        {{ if .CollectMetrics }}
+        - "--metrics-endpoint={{ .Name }}-metrics:8443"
         {{ end }}
         resources:
           requests:
