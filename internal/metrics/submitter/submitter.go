@@ -78,9 +78,9 @@ func (s *Submitter) Run(ctx context.Context) (err error) {
 // newTicker returns a ticker that ticks once immediately, and then backs off exponentially forever.
 // Caller is responsible for calling Stop() on it eventually.
 func newTicker(ctx context.Context, timer backoff.Timer) *backoff.Ticker {
-	b := backoff.NewExponentialBackOff()
-	b.InitialInterval = 10 * time.Second
-	b.MaxElapsedTime = 0
+	b := backoff.NewExponentialBackOff(
+		backoff.WithInitialInterval(10*time.Second),
+		backoff.WithMaxElapsedTime(0))
 	return backoff.NewTickerWithTimer(backoff.WithContext(b, ctx), timer)
 }
 
