@@ -190,7 +190,7 @@ jobs:
       - name: Dump debug info
         if: always()
         run: |
-          kubectl -n "$NS" get -o yaml daemonsets,pods,services,roles,rolebindings
+          kubectl -n "$NS" get -o yaml daemonsets,deployments,pods,replicasets,services,roles,rolebindings
           kubectl -n "$NS" get events
           kubectl -n "$NS" logs -l app=basic-metrics --all-containers=true --ignore-errors=true --tail=-1
           kubectl -n "$NS" logs -l app=basic-metrics --all-containers=true --ignore-errors=true --tail=-1 --previous=true

@@ -27,35 +27,43 @@ roleRef:
 ---
 {{ end }}
 {{ if .CollectMetrics }}
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: {{ .Name }}-metrics
   labels:
     app: {{ .Name }}-metrics
 spec:
-  containers:
-  - name: aggregator
-    image: {{ .Image }}:{{ .Version }}
-    args:
-    - "aggregate-metrics"
-    - "--debug"
-    ports:
-    - containerPort: 8443
-      name: grpc
-    - containerPort: 8080
-      name: http
-    resources:
-      requests:
-        cpu: "5m"
-        memory: "16Mi"
-      limits:
-        cpu: "100m"
-        memory: "64Mi"
-    securityContext:
-      readOnlyRootFilesystem: true
-      runAsUser: 1000
-      runAsNonRoot: true
+  selector:
+    matchLabels:
+      app: {{ .Name }}-metrics
+  template:
+    metadata:
+      labels:
+        app: {{ .Name }}-metrics
+    spec:
+      containers:
+      - name: aggregator
+        image: {{ .Image }}:{{ .Version }}
+        args:
+        - "aggregate-metrics"
+        - "--debug"
+        ports:
+        - containerPort: 8443
+          name: grpc
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            cpu: "5m"
+            memory: "16Mi"
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+        securityContext:
+          readOnlyRootFilesystem: true
+          runAsUser: 1000
+          runAsNonRoot: true
 ---
 apiVersion: v1
 kind: Service
