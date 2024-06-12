@@ -50,7 +50,7 @@ It also optionally collects each pull attempt's duration and result.
    Example:
 
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@master my-images v0.0.8 vanilla > manifest.yaml
+   go run github.com/stackrox/image-prefetcher/deploy@v0.2.2 my-images v0.2.2 vanilla > manifest.yaml
    ```
 
 2. Prepare an image list. This should be a plain text file with one image name per line.
@@ -108,3 +108,25 @@ This utility was designed for small, ephemeral test clusters, in order to improv
 
 If deployed on larger clusters, it may have a "thundering herd" effect on the OCI registries it pulls from.
 This is because all images are pulled from all nodes in parallel.
+
+## Release procedure
+
+1. Pick a tag name, use the usual semver rules. We'll refer to it as `vx.y.z` below
+2. [Draft a new release](https://github.com/stackrox/image-prefetcher/releases/new)
+   1. Enter `vx.y.z` as the name of a new tag to create
+   2. Click "Create new tag on publish"
+   3. Keep `master` as target
+   4. Keep `auto` as previous tag
+   5. Click "Generate release notes"
+   6. Optional: edit the release notes as you see fit
+3. Publish the release
+4. Make sure the build GitHub Action that gets triggered by the tag runs successfully and pushes images.
+5. It is also a good idea to wait for the e2e job to pass before proceeding.
+6. Create a tag for the `deploy` module
+   1. This is the tag that `go run github.com/stackrox/image-prefetcher/deploy@vx.y.z` looks for (since its `go.mod` is
+      not in the repository root)
+   2. Currently, this needs to be done manually since GitHub UI does not seem to allow creation of tags without
+      an associated release. TODO: automate this
+   3. Check out the tagged commit in your clone
+   4. `git tag deploy/vx.y.z`
+   5. `git push --tags`
