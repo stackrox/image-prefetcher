@@ -126,7 +126,7 @@ This is because all images are pulled from all nodes in parallel.
    1. This is the tag that `go run github.com/stackrox/image-prefetcher/deploy@vx.y.z` looks for (since its `go.mod` is
       not in the repository root)
    2. Currently, this needs to be done manually since GitHub UI does not seem to allow creation of tags without
-      an associated release. TODO: automate this
+      an associated release. TODO: [automate this](https://github.com/stackrox/image-prefetcher/issues/30)
    3. Check out the tagged commit in your clone
    4. `git tag deploy/vx.y.z`
    5. `git push --tags`
