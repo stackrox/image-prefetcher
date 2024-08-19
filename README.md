@@ -82,7 +82,7 @@ It also optionally collects each pull attempt's duration and result.
    attempt=0
    service="service/my-images-metrics"
    while [[ -z $(kubectl -n "${ns}" get "${service}" -o jsonpath="{.status.loadBalancer.ingress}" 2>/dev/null) ]]; do
-       if [ "$attempt" -lt "10" ]; then
+       if [ "$attempt" -lt "60" ]; then
            echo "Waiting for ${service} to obtain endpoint ..."
            ((attempt++))
            sleep 10
