@@ -1,3 +1,9 @@
+FROM golang:latest AS build
+WORKDIR /build
+COPY ./ ./
+RUN go mod verify
+RUN CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' .
+
 FROM scratch
-COPY image-prefetcher /
+COPY --from=build /build/image-prefetcher /image-prefetcher
 ENTRYPOINT ["/image-prefetcher"]
