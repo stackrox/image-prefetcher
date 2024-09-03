@@ -1,4 +1,4 @@
-FROM golang:latest AS build
+FROM golang:1.22.0 AS build
 WORKDIR /build
 COPY ./ ./
 RUN go mod verify
