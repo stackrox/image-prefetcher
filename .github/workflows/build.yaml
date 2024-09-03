@@ -70,6 +70,9 @@ jobs:
         with:
           directory: manifests
 
+      - name: Build binary
+        run: CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' .
+
       - name: Login to Quay
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
