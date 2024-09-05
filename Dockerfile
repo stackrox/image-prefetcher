@@ -2,7 +2,7 @@ FROM golang:1.22.0 AS build
 WORKDIR /build
 COPY ./ ./
 RUN go mod verify
-RUN CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' .
+RUN make binary
 
 FROM scratch
 COPY --from=build /build/image-prefetcher /image-prefetcher

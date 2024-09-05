@@ -71,7 +71,7 @@ jobs:
           directory: manifests
 
       - name: Build binary
-        run: CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' .
+        run: make binary
 
       - name: Login to Quay
         if: github.event_name != 'pull_request'
