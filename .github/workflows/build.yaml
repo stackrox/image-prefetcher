@@ -71,7 +71,7 @@ jobs:
           directory: manifests
 
       - name: Build binary
-        run: make binary-all
+        run: make -j2 binary-all
 
       - name: Login to Quay
         if: github.event_name != 'pull_request'
