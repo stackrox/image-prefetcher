@@ -16,12 +16,6 @@ updates:
       k8s.io:
         patterns:
           - "k8s.io/*"
-  - package-ecosystem: 'docker'
-    directory: '/'
-    schedule:
-      interval: 'weekly'
-      day: 'tuesday'
-    open-pull-requests-limit: 5
   - package-ecosystem: 'gomod'
     directory: '/deploy/tools'
     schedule:
