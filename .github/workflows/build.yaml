@@ -129,7 +129,9 @@ jobs:
           build-args: |
             ARCH=s390x
       - name: Create and push multi-arch manifest
-        run: IMAGE_TAG="${{ steps.meta.outputs.tags }}" make push-multi-arch-manifest
+        env:
+          IMAGE_TAG: ${{ steps.meta.outputs.tags }}
+        run: make push-multi-arch-manifest
 
 
   e2e:
