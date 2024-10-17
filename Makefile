@@ -13,10 +13,9 @@ binary-s390x:
 binary-all: binary-amd64 binary-arm64 binary-ppc64le binary-s390x
 
 push-multi-arch-manifest:
-	docker manifest create \
-	${IMAGE_TAG} \
-	--amend ${IMAGE_TAG}-amd64 \
-	--amend	${IMAGE_TAG}-arm64 \
-	--amend	${IMAGE_TAG}-ppc64le \
-	--amend	${IMAGE_TAG}-s390x
-	docker manifest push ${IMAGE_TAG}
+	docker manifest create '${IMAGE_TAG}' \
+	--amend '${IMAGE_TAG}-amd64' \
+	--amend	'${IMAGE_TAG}-arm64' \
+	--amend	'${IMAGE_TAG}-ppc64le' \
+	--amend	'${IMAGE_TAG}-s390x'
+	docker manifest push '${IMAGE_TAG}'
