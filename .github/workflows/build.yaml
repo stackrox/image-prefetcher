@@ -133,8 +133,9 @@ jobs:
         if: github.event_name != 'pull_request'
         env:
           IMAGE_TAG: >-
-            ${{ steps.meta.outputs.tags }}
-        run: make push-multi-arch-manifest
+            ${{ steps.meta.outputs.json }}
+        run: echo $IMAGE_TAG
+        #run: make push-multi-arch-manifest
 
 
   e2e:
