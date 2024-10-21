@@ -130,7 +130,7 @@ jobs:
             ARCH=s390x
       
       - name: Create and push multi-arch manifest
-        if: github.event_name != 'pull_request'
+        #if: github.event_name != 'pull_request'
         env:
           IMAGE_TAG: >-
             ${{ steps.meta.outputs.json }}
