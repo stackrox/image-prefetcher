@@ -87,7 +87,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-amd64
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64
           build-args: |
@@ -99,7 +99,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-arm64
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}--arm64
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/arm64
           build-args: |
@@ -111,7 +111,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-ppc64le
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-ppc64le
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/ppc64le
           build-args: |
@@ -123,19 +123,27 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}-s390x
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-s390x
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/s390x
           build-args: |
             ARCH=s390x
       
       - name: Create and push multi-arch manifest
-        #if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         env:
-          IMAGE_TAG: >-
-            ${{ steps.meta.outputs.json }}
-        run: echo "${IMAGE_TAG}"
-        #run: make push-multi-arch-manifest
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          MA_IMAGE_BASE: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+        run: |
+          for tag in $(IMAGE_TAGS);
+          do
+            docker manifest create '$tag' \
+              --amend '$(MA_IMAGE_BASE)-amd64' \
+              --amend '$(MA_IMAGE_BASE)-arm64' \
+              --amend '$(MA_IMAGE_BASE)-ppc64le' \
+              --amend '$(MA_IMAGE_BASE)-s390x'
+            docker manifest push '$tag'
+          done
 
 
   e2e:
