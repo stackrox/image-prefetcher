@@ -135,7 +135,7 @@ jobs:
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
           MA_IMAGE_BASE: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
         run: |
-          for tag in $(IMAGE_TAGS);
+          for tag in "$IMAGE_TAGS";
           do
             docker manifest create "$tag" \
               --amend '$(MA_IMAGE_BASE)-amd64' \
