@@ -134,7 +134,7 @@ jobs:
         env:
           IMAGE_TAG: >-
             ${{ steps.meta.outputs.json }}
-        run: echo $IMAGE_TAG
+        run: echo "${IMAGE_TAG}"
         #run: make push-multi-arch-manifest
 
 
