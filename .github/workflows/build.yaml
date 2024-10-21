@@ -132,7 +132,8 @@ jobs:
       - name: Create and push multi-arch manifest
         if: github.event_name != 'pull_request'
         env:
-          IMAGE_TAG: ${{ steps.meta.outputs.tags }}
+          IMAGE_TAG: >-
+            ${{ steps.meta.outputs.tags }}
         run: make push-multi-arch-manifest
 
 
