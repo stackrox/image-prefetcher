@@ -137,12 +137,12 @@ jobs:
         run: |
           for tag in $(IMAGE_TAGS);
           do
-            docker manifest create '$tag' \
+            docker manifest create $tag \
               --amend '$(MA_IMAGE_BASE)-amd64' \
               --amend '$(MA_IMAGE_BASE)-arm64' \
               --amend '$(MA_IMAGE_BASE)-ppc64le' \
               --amend '$(MA_IMAGE_BASE)-s390x'
-            docker manifest push '$tag'
+            docker manifest push $tag
           done
 
 
