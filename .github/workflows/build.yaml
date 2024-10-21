@@ -135,21 +135,21 @@ jobs:
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
           MA_IMAGE_BASE: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
         run: |
-          for tag in "$IMAGE_TAGS";
+          for tag in ${IMAGE_TAGS};
           do
-            docker manifest create "$tag" \
-              --amend '$(MA_IMAGE_BASE)-amd64' \
-              --amend '$(MA_IMAGE_BASE)-arm64' \
-              --amend '$(MA_IMAGE_BASE)-ppc64le' \
-              --amend '$(MA_IMAGE_BASE)-s390x'
-            docker manifest push "$tag"
+            docker manifest create "${tag}" \
+              --amend "${MA_IMAGE_BASE}-amd64" \
+              --amend "${MA_IMAGE_BASE}-arm64' \
+              --amend "${MA_IMAGE_BASE}-ppc64le' \
+              --amend "${MA_IMAGE_BASE}-s390x
+            docker manifest push "${tag}"
           done
 
 
   e2e:
     if: github.event_name != 'pull_request'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latestq
     env:
       CLUSTER_NAME: img-prefetch-${{ github.run_id }}
       INFRA_TOKEN: ${{ secrets.INFRA_TOKEN }}
