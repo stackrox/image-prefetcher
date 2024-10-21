@@ -99,7 +99,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}--arm64
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-arm64
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/arm64
           build-args: |
