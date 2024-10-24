@@ -71,7 +71,7 @@ jobs:
           directory: manifests
 
       - name: Build binary
-        run: CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' .
+        run: make -j2 binary-all
 
       - name: Login to Quay
         if: github.event_name != 'pull_request'
@@ -81,14 +81,70 @@ jobs:
           username: ${{ secrets.QUAY_STACKROX_IO_RW_USERNAME }}
           password: ${{ secrets.QUAY_STACKROX_IO_RW_PASSWORD }}
 
-      - name: Build and push OCI image
+      - name: Build and push OCI amd64 image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-amd64
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
+          build-args: |
+            ARCH=amd64
+
+      - name: Build and push OCI arm64 image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-arm64
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/arm64
+          build-args: |
+            ARCH=arm64
+
+      - name: Build and push OCI ppc64le image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-ppc64le
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/ppc64le
+          build-args: |
+            ARCH=ppc64le
+
+      - name: Build and push OCI s390x image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}-s390x
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/s390x
+          build-args: |
+            ARCH=s390x
+      
+      - name: Create and push multi-arch manifest
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          MULTI_ARCH_IMAGE_BASE: quay.io/stackrox-io/image-prefetcher:${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+        run: |
+          for tag in ${IMAGE_TAGS};
+          do
+            docker manifest create "${tag}" \
+              --amend "${MULTI_ARCH_IMAGE_BASE}-amd64" \
+              --amend "${MULTI_ARCH_IMAGE_BASE}-arm64" \
+              --amend "${MULTI_ARCH_IMAGE_BASE}-ppc64le" \
+              --amend "${MULTI_ARCH_IMAGE_BASE}-s390x"
+            docker manifest push "${tag}"
+          done
+
 
   e2e:
     if: github.event_name != 'pull_request'
