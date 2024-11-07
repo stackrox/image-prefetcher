@@ -14,20 +14,6 @@ jobs:
       - name: Run ShellCheck on GHA config
         uses: saleor/shellcheck-gha@v0
 
-      - name: Prepare OCI metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: "quay.io/stackrox-io/image-prefetcher"
-          # generate Docker tags based on the following events/attributes
-          # See https://github.com/docker/metadata-action
-          tags: |
-            type=ref,event=branch,prefix=branch-
-            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
-            type=semver,pattern=v{{major}}.{{minor}}
-            type=semver,pattern=v{{major}}
-            type=sha
-
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
@@ -71,7 +57,7 @@ jobs:
           directory: manifests
 
       - name: Build binary
-        run: CGO_ENABLED=0 go build -a -ldflags '-extldflags "-static"' .
+        run: make -j2 binary-all
 
       - name: Login to Quay
         if: github.event_name != 'pull_request'
@@ -81,14 +67,139 @@ jobs:
           username: ${{ secrets.QUAY_STACKROX_IO_RW_USERNAME }}
           password: ${{ secrets.QUAY_STACKROX_IO_RW_PASSWORD }}
 
-      - name: Build and push OCI image
+      - name: Prepare manifest OCI metadata for amd64
+        id: meta-amd64
+        uses: docker/metadata-action@v5
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          tags: |
+            type=ref,event=branch,prefix=branch-,suffix=-amd64
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-amd64
+            type=semver,pattern=v{{major}}.{{minor}},suffix=-amd64
+            type=semver,pattern=v{{major}},suffix=-amd64
+            type=sha,suffix=-amd64
+
+      - name: Build and push OCI amd64 image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.meta-amd64.outputs.tags }}
+          labels: ${{ steps.meta-amd64.outputs.labels }}
+          platforms: linux/amd64
+          build-args: |
+            ARCH=amd64
+
+      - name: Prepare manifest OCI metadata for arm64
+        id: meta-arm64
+        uses: docker/metadata-action@v5
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          tags: |
+            type=ref,event=branch,prefix=branch-,suffix=-arm64
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-arm64
+            type=semver,pattern=v{{major}}.{{minor}},suffix=-arm64
+            type=semver,pattern=v{{major}},suffix=-arm64
+            type=sha,suffix=-arm64
+
+      - name: Build and push OCI arm64 image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-arm64.outputs.tags }}
+          labels: ${{ steps.meta-arm64.outputs.labels }}
+          platforms: linux/arm64
+          build-args: |
+            ARCH=arm64
+
+      - name: Prepare manifest OCI metadata for ppc64le
+        id: meta-ppc64le
+        uses: docker/metadata-action@v5
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          tags: |
+            type=ref,event=branch,prefix=branch-,suffix=-ppc64le
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-ppc64le
+            type=semver,pattern=v{{major}}.{{minor}},suffix=-ppc64le
+            type=semver,pattern=v{{major}},suffix=-ppc64le
+            type=sha,suffix=-ppc64le
+
+      - name: Build and push OCI ppc64le image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-ppc64le.outputs.tags }}
+          labels: ${{ steps.meta-ppc64le.outputs.labels }}
+          platforms: linux/ppc64le
+          build-args: |
+            ARCH=ppc64le
+
+      - name: Prepare manifest OCI metadata for s390x
+        id: meta-s390x
+        uses: docker/metadata-action@v5
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          tags: |
+            type=ref,event=branch,prefix=branch-,suffix=-s390x
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-s390x
+            type=semver,pattern=v{{major}}.{{minor}},suffix=-s390x
+            type=semver,pattern=v{{major}},suffix=-s390x
+            type=sha,suffix=-s390x
+
+      - name: Build and push OCI s390x image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-s390x.outputs.tags }}
+          labels: ${{ steps.meta-s390x.outputs.labels }}
+          platforms: linux/s390x
+          build-args: |
+            ARCH=s390x
+
+      - name: Prepare manifest OCI metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          tags: |
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
+
+      - name: Create and push multi-arch manifest
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          for tag in ${IMAGE_TAGS};
+          do
+            docker manifest create "${tag}" \
+              --amend "${tag}-amd64" \
+              --amend "${tag}-arm64" \
+              --amend "${tag}-ppc64le" \
+              --amend "${tag}-s390x"
+            docker manifest push "${tag}"
+          done
+
 
   e2e:
     if: github.event_name != 'pull_request'
