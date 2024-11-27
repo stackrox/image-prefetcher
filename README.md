@@ -50,7 +50,7 @@ It also optionally collects each pull attempt's duration and result.
    Example:
 
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@v0.2.2 my-images v0.2.2 vanilla > manifest.yaml
+   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 my-images > manifest.yaml
    ```
 
 2. Prepare an image list. This should be a plain text file with one image name per line.

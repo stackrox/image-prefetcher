@@ -40,7 +40,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&version, "version", "v0.1.0", "Version of image prefetcher OCI image.")
+	flag.StringVar(&version, "version", "v0.3.0", "Version of image prefetcher OCI image.")
 	flag.TextVar(&k8sFlavor, "k8s-flavor", flavor(vanillaFlavor), fmt.Sprintf("Kubernetes flavor. Accepted values: %s", strings.Join(allFlavors, ",")))
 	flag.StringVar(&secret, "secret", "", "Kubernetes image pull Secret to use when pulling.")
 	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
@@ -50,6 +50,7 @@ func main() {
 	flag.Parse()
 	if len(flag.Args()) < 1 {
 		println("Usage:", os.Args[0], "[ FLAGS ] <name>")
+		println("Note: name MUST come AFTER flags, if any.")
 		os.Exit(1)
 	}
 	name := flag.Arg(0)
