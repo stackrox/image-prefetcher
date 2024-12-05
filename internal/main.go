@@ -161,10 +161,10 @@ func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.Wai
 			return
 		}
 		// Be exponentially more patient on each attempt, but prevent overflows.
-		attemptTimeout = min(attemptTimeout*2, timing.MaxPullAttemptDelay)
+		attemptTimeout = min(attemptTimeout*2, timing.MaxPullAttemptTimeout)
 		logger.InfoContext(ctx, "sleeping before retry", "timeout", delay)
 		time.Sleep(delay)
-		delay = delay * 2
+		delay = min(delay*2, timing.MaxPullAttemptDelay)
 	}
 }
 
