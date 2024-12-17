@@ -1,8 +1,7 @@
 module github.com/stackrox/image-prefetcher
 
 go 1.22.0
-
-toolchain go1.22.1
+toolchain go1.23.4
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -13,8 +12,8 @@ require (
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.69.0
 	google.golang.org/protobuf v1.36.0
-	k8s.io/apimachinery v0.31.3
-	k8s.io/cri-api v0.31.3
+	k8s.io/apimachinery v0.32.0
+	k8s.io/cri-api v0.32.0
 	k8s.io/klog/v2 v2.130.1
 )
 
