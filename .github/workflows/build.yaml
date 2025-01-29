@@ -52,7 +52,7 @@ jobs:
           make -C deploy kubeconform MANIFESTS="$(pwd)/manifests"
 
       - name: kube-linter
-        uses: stackrox/kube-linter-action@v1.0.5
+        uses: stackrox/kube-linter-action@v1.0.6
         with:
           directory: manifests
 
