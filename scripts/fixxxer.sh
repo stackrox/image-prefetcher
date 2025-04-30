@@ -2,13 +2,10 @@
 # This script is an entrypoint for the action .github/workflows/fixxxer.yaml
 set -euo pipefail
 
+source scripts/lib.sh
+
 msg_file=$(mktemp)
 trap 'rm -f "${msg_file}"' EXIT
-
-function info()
-{
-  echo >&2 "$(date --iso-8601=seconds)" "$@"
-}
 
 find scripts/fixxxers -name '*.sh' -type f -printf "%p\n" | sort | while read -r script; do
     info "Running $script..."
