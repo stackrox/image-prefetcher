@@ -178,7 +178,7 @@ func getImageSize(ctx context.Context, logger *slog.Logger, client criV1.ImageSe
 		logger.WarnContext(ctx, "failed to obtain pulled image status", "image", response.ImageRef, "error", err)
 		return 0
 	}
-	return imageStatus.GetImage().GetSize_()
+	return imageStatus.GetImage().GetSize()
 }
 
 func noteSuccess(sink chan<- *metricsProto.Result, name string, start time.Time, elapsed time.Duration, sizeBytes uint64) {
