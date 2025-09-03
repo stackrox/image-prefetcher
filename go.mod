@@ -8,8 +8,8 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/google/uuid v1.6.0
 	github.com/neilotoole/slogt v1.1.0
-	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.7
+	github.com/spf13/cobra v1.10.1
+	github.com/spf13/pflag v1.0.9
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
