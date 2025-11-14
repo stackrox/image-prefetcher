@@ -12,6 +12,7 @@ import (
 
 type settings struct {
 	Name            string
+	Namespace       string
 	Image           string
 	Version         string
 	Secret          string
@@ -34,6 +35,7 @@ var deploymentTemplate string
 
 var (
 	version        string
+	namespace      string
 	k8sFlavor      k8sFlavorType
 	secret         string
 	collectMetrics bool
@@ -41,6 +43,7 @@ var (
 
 func init() {
 	flag.StringVar(&version, "version", "v0.3.0", "Version of image prefetcher OCI image.")
+	flag.StringVar(&namespace, "namespace", "default", "Namespace where the image prefetcher will be deployed.")
 	flag.TextVar(&k8sFlavor, "k8s-flavor", flavor(vanillaFlavor), fmt.Sprintf("Kubernetes flavor. Accepted values: %s", strings.Join(allFlavors, ",")))
 	flag.StringVar(&secret, "secret", "", "Kubernetes image pull Secret to use when pulling.")
 	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
@@ -58,6 +61,7 @@ func main() {
 
 	s := settings{
 		Name:            name,
+		Namespace:       namespace,
 		Image:           imageRepo,
 		Version:         version,
 		Secret:          secret,
