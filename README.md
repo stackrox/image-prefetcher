@@ -39,7 +39,7 @@ It also optionally collects each pull attempt's duration and result.
 
    It also accepts a few optional flags:
    - `--version`: `image-prefetcher` OCI image tag. See [list of existing tags](https://quay.io/repository/mowsiany/image-prefetcher?tab=tags).
-   - `--namespace`: namespace where the image prefetcher will be deployed (default: `default`). Used for ClusterRoleBinding.
+   - `--namespace`: namespace where the image prefetcher will be deployed (default: `default`). Used for ClusterRoleBinding. Must be specified unless deploying to the `default` namespace.
    - `--k8s-flavor` depending on the cluster. Currently one of:
      - `vanilla`: a generic Kubernetes distribution without additional restrictions.
      - `ocp`: OpenShift, which requires explicitly granting special privileges.
@@ -51,7 +51,7 @@ It also optionally collects each pull attempt's duration and result.
    Example:
 
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 my-images > manifest.yaml
+   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 --namespace prefetch-images my-images > manifest.yaml
    ```
 
 2. Prepare an image list. This should be a plain text file with one image name per line.
@@ -108,7 +108,7 @@ The prefetcher creates a single label per instance on each node:
 
 - **Label key**: `image-prefetcher.stackrox.io/<instance-name>`
 - **Label value**:
-  - `success` - if ALL images were successfully pulled
+  - `succeeded` - if ALL images were successfully pulled
   - `failed` - if ANY image failed to pull
 
 The instance name in the label key is the name you provide when deploying (e.g., `my-images`). Multiple independent prefetcher instances can run simultaneously, each creating its own label.
@@ -118,7 +118,7 @@ The instance name in the label key is the name you provide when deploying (e.g.,
 After successfully prefetching all images with instance name `my-images`, a node will have:
 
 ```
-image-prefetcher.stackrox.io/my-images=success
+image-prefetcher.stackrox.io/my-images=succeeded
 ```
 
 If any image fails:
@@ -135,7 +135,7 @@ You can use node selectors or node affinity to schedule pods only on nodes where
 ```yaml
 spec:
   nodeSelector:
-    image-prefetcher.stackrox.io/my-images: success
+    image-prefetcher.stackrox.io/my-images: succeeded
   containers:
   - name: my-app
     image: nginx:latest
@@ -151,7 +151,7 @@ spec:
         - matchExpressions:
           - key: image-prefetcher.stackrox.io/my-images
             operator: In
-            values: [success]
+            values: [succeeded]
   containers:
   - name: my-app
     image: nginx:latest
@@ -159,9 +159,8 @@ spec:
 
 **Example 3: Finding Nodes with Successful Prefetch**
 ```bash
-kubectl get nodes -l 'image-prefetcher.stackrox.io/my-images=success'
+kubectl get nodes -l 'image-prefetcher.stackrox.io/my-images=succeeded'
 kubectl get nodes -l 'image-prefetcher.stackrox.io'
-kubectl get node <node-name> --show-labels | grep image-prefetcher
 ```
 
 #### Label Lifecycle
@@ -173,9 +172,7 @@ kubectl get node <node-name> --show-labels | grep image-prefetcher
 
 #### RBAC Requirements
 
-The node labeling feature requires the following permissions (automatically included in the generated manifests):
-- `get`, `patch`, and `update` permissions on `nodes` resources.
-- A ServiceAccount, ClusterRole, and ClusterRoleBinding are created automatically.
+The node labeling feature requires `get`, `patch`, and `update` permissions on `nodes` resources. A `ServiceAccount`, `ClusterRole`, and `ClusterRoleBinding` that satisfy them are automatically included in the generated manifests.
 
 ### Customization
 

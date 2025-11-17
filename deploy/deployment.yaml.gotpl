@@ -7,6 +7,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ .Name }}-node-labeler
+  annotations:
+    kubernetes.io/description: "Allows the image-prefetcher to label nodes with prefetch status for instance {{ .Name }} in namespace {{ .Namespace }}."
 rules:
 - apiGroups: [""]
   resources: ["nodes"]
@@ -16,6 +18,8 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ .Name }}-node-labeler
+  annotations:
+    kubernetes.io/description: "Grants node labeling permissions to image-prefetcher ServiceAccount {{ .Name }} in namespace {{ .Namespace }}."
 subjects:
 - kind: ServiceAccount
   name: {{ .Name }}

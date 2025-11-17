@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -18,13 +19,10 @@ const (
 	LabelPrefix = "image-prefetcher.stackrox.io/"
 
 	// LabelValueSuccess indicates all images were successfully prefetched.
-	LabelValueSuccess = "success"
+	LabelValueSuccess = "succeeded"
 
 	// LabelValueFailed indicates one or more images failed to prefetch.
 	LabelValueFailed = "failed"
-
-	// MaxLabelNameLength is the maximum length for the label name part (after prefix).
-	MaxLabelNameLength = 63
 )
 
 // NewClient creates a new Kubernetes client using in-cluster configuration.
@@ -51,11 +49,11 @@ func sanitizeLabelName(s string) string {
 	reg := regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
 	sanitized := reg.ReplaceAllString(s, "-")
 
-	if len(sanitized) > MaxLabelNameLength {
-		sanitized = sanitized[:MaxLabelNameLength]
+	if len(sanitized) > validation.DNS1123LabelMaxLength {
+		sanitized = sanitized[:validation.DNS1123LabelMaxLength]
 	}
 
-	sanitized = strings.Trim(sanitized, "-._")
+	sanitized = strings.Trim(sanitized, "._-")
 
 	if sanitized == "" {
 		sanitized = "prefetcher"
@@ -91,7 +89,7 @@ func UpdateNodeLabels(ctx context.Context, client kubernetes.Interface, nodeName
 
 	node.Labels[labelKey] = labelValue
 
-	logger.Info("Setting prefetch status label", "key", labelKey, "value", labelValue)
+	logger.Info("Setting prefetch status node label", "key", labelKey, "value", labelValue)
 
 	_, err = client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
 	if err != nil {

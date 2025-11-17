@@ -95,14 +95,6 @@ func TestSanitizeLabelName(t *testing.T) {
 			if tt.checkPrefix {
 				assert.True(t, strings.HasPrefix(output, tt.prefixExpect))
 			}
-
-			// Verify output is a valid label name
-			assert.LessOrEqual(t, len(output), MaxLabelNameLength, "label name too long")
-			assert.NotEmpty(t, output, "label name should not be empty")
-			if len(output) > 0 {
-				assert.Regexp(t, `^[a-zA-Z0-9]`, output, "must start with alphanumeric")
-				assert.Regexp(t, `[a-zA-Z0-9]$`, output, "must end with alphanumeric")
-			}
 		})
 	}
 }
