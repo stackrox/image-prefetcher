@@ -2,6 +2,7 @@ package nodelabels
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -9,9 +10,12 @@ import (
 	"sync"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -25,8 +29,8 @@ const (
 	LabelValueFailed = "failed"
 )
 
-// NewClient creates a new Kubernetes client using in-cluster configuration.
-func NewClient() (*kubernetes.Clientset, error) {
+// NewClient creates a new Kubernetes node client using in-cluster configuration.
+func NewClient() (corev1.NodeInterface, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get in-cluster config: %w", err)
@@ -37,7 +41,7 @@ func NewClient() (*kubernetes.Clientset, error) {
 		return nil, fmt.Errorf("failed to create kubernetes client: %w", err)
 	}
 
-	return clientset, nil
+	return clientset.CoreV1().Nodes(), nil
 }
 
 // sanitizeLabelName converts an arbitrary string into a valid Kubernetes label name.
@@ -62,18 +66,13 @@ func sanitizeLabelName(s string) string {
 	return sanitized
 }
 
+func retryAll(err error) bool {
+	return true
+}
+
 // UpdateNodeLabels updates the labels on a node to reflect the overall prefetch status.
-// It updates only the label for this specific instance, leaving other instance labels untouched.
-func UpdateNodeLabels(ctx context.Context, client kubernetes.Interface, nodeName, instanceName string, results *sync.Map, logger *slog.Logger) error {
-	node, err := client.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get node %s: %w", nodeName, err)
-	}
-
-	if node.Labels == nil {
-		node.Labels = make(map[string]string)
-	}
-
+// Uses PATCH instead of UPDATE to reduce conflicts and avoid fetching the entire node object.
+func UpdateNodeLabels(ctx context.Context, nodeClient corev1.NodeInterface, nodeName, instanceName string, results *sync.Map, logger *slog.Logger) error {
 	// Determine overall status: success if ALL images succeeded, failed otherwise.
 	labelValue := LabelValueSuccess
 	results.Range(func(key, value interface{}) bool {
@@ -87,16 +86,30 @@ func UpdateNodeLabels(ctx context.Context, client kubernetes.Interface, nodeName
 	sanitizedInstanceName := sanitizeLabelName(instanceName)
 	labelKey := LabelPrefix + sanitizedInstanceName
 
-	node.Labels[labelKey] = labelValue
-
 	logger.Info("Setting prefetch status node label", "key", labelKey, "value", labelValue)
 
-	_, err = client.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	type patchPayload struct {
+		Metadata struct {
+			Labels map[string]string `json:"labels"`
+		} `json:"metadata"`
+	}
+
+	err := retry.OnError(retry.DefaultBackoff, retryAll, func() error {
+		patch := patchPayload{}
+		patch.Metadata.Labels = map[string]string{labelKey: labelValue}
+
+		patchBytes, err := json.Marshal(patch)
+		if err != nil {
+			return fmt.Errorf("failed to marshal patch: %w", err)
+		}
+
+		_, err = nodeClient.Patch(ctx, nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+		return err
+	})
 	if err != nil {
-		return fmt.Errorf("failed to update node %s: %w", nodeName, err)
+		return fmt.Errorf("failed to patch node %s: %w", nodeName, err)
 	}
 
 	logger.Info("Successfully updated node label", "node", nodeName, "instance", instanceName, "status", labelValue)
-
 	return nil
 }
