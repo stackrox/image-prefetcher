@@ -17,7 +17,6 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	criV1 "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -59,9 +58,6 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 		return fmt.Errorf("failed to load image pull secrets: %w", err)
 	}
 
-	// If Kubernetes client initialization fails, we log the error but don't fail the prefetch operation.
-	nodeClient, nodeName, instanceName := initKubernetesClient(logger)
-
 	// Track results per image. Multiple goroutines (different auths) may update the same image.
 	var results sync.Map // map[string]bool (imageRef -> success status)
 
@@ -83,40 +79,15 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 	logger.Info("pulling images finished")
 	metricsSink.Await()
 
-	if nodeClient != nil {
-		// Don't fail the overall operation if node labeling fails.
-		if err := nodelabels.UpdateNodeLabels(ctx, nodeClient, nodeName, instanceName, &results, logger); err != nil {
-			logger.Error("failed to update node labels", "error", err)
-		}
+	// Don't fail the overall operation if node labeling fails.
+	if err := nodelabels.PatchNodeLabels(ctx, &results, logger); err != nil {
+		logger.Error("failed to update node labels", "error", err)
 	}
 
 	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "after"); err != nil {
 		return fmt.Errorf("failed to list images for debugging after pulling: %w", err)
 	}
 	return nil
-}
-
-func initKubernetesClient(logger *slog.Logger) (corev1.NodeInterface, string, string) {
-	nodeName := os.Getenv("NODE_NAME")
-	instanceName := os.Getenv("INSTANCE_NAME")
-
-	if nodeName == "" {
-		logger.Warn("NODE_NAME environment variable not set, node labeling will be skipped")
-		return nil, "", ""
-	}
-	if instanceName == "" {
-		logger.Warn("INSTANCE_NAME environment variable not set, node labeling will be skipped")
-		return nil, "", ""
-	}
-
-	nodeClient, err := nodelabels.NewClient()
-	if err != nil {
-		logger.Warn("failed to create Kubernetes client, node labeling will be skipped", "error", err)
-		return nil, "", ""
-	}
-
-	logger.Info("Kubernetes client initialized for node labeling", "node", nodeName, "instance", instanceName)
-	return nodeClient, nodeName, instanceName
 }
 
 func listImagesForDebugging(ctx context.Context, logger *slog.Logger, client criV1.ImageServiceClient, timeout time.Duration, stage string) error {

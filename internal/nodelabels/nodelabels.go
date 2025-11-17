@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -44,6 +45,37 @@ func NewClient() (corev1.NodeInterface, error) {
 	return clientset.CoreV1().Nodes(), nil
 }
 
+// PatchNodeLabels creates a Kubernetes client and updates node labels with prefetch results.
+// This function combines client initialization and label updates in a single operation.
+// If environment variables are not set or client creation fails, it logs a warning and returns without error.
+func PatchNodeLabels(ctx context.Context, results *sync.Map, logger *slog.Logger) error {
+	nodeName := os.Getenv("NODE_NAME")
+	instanceName := os.Getenv("INSTANCE_NAME")
+
+	if nodeName == "" {
+		logger.Info("NODE_NAME environment variable not set, skipping node labeling")
+		return nil
+	}
+	if instanceName == "" {
+		logger.Info("INSTANCE_NAME environment variable not set, skipping node labeling")
+		return nil
+	}
+
+	nodeClient, err := NewClient()
+	if err != nil {
+		logger.Warn("failed to create Kubernetes client, skipping node labeling", "error", err)
+		return nil
+	}
+
+	logger.Info("Kubernetes client initialized for node labeling", "node", nodeName, "instance", instanceName)
+
+	if err := patchNodeLabelsWithClient(ctx, nodeClient, nodeName, instanceName, results, logger); err != nil {
+		return fmt.Errorf("failed to update node labels: %w", err)
+	}
+
+	return nil
+}
+
 // sanitizeLabelName converts an arbitrary string into a valid Kubernetes label name.
 // Label names must:
 // - Be at most 63 characters.
@@ -70,9 +102,9 @@ func retryAll(err error) bool {
 	return true
 }
 
-// UpdateNodeLabels updates the labels on a node to reflect the overall prefetch status.
+// patchNodeLabelsWithClient updates the labels on a node to reflect the overall prefetch status.
 // Uses PATCH instead of UPDATE to reduce conflicts and avoid fetching the entire node object.
-func UpdateNodeLabels(ctx context.Context, nodeClient corev1.NodeInterface, nodeName, instanceName string, results *sync.Map, logger *slog.Logger) error {
+func patchNodeLabelsWithClient(ctx context.Context, nodeClient corev1.NodeInterface, nodeName, instanceName string, results *sync.Map, logger *slog.Logger) error {
 	// Determine overall status: success if ALL images succeeded, failed otherwise.
 	labelValue := LabelValueSuccess
 	results.Range(func(key, value interface{}) bool {

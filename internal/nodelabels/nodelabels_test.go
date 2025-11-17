@@ -204,7 +204,7 @@ func TestUpdateNodeLabels(t *testing.T) {
 			ctx := context.Background()
 
 			nodeClient := fakeClient.CoreV1().Nodes()
-			err := UpdateNodeLabels(ctx, nodeClient, name, tt.instanceName, results, logger)
+			err := patchNodeLabelsWithClient(ctx, nodeClient, name, tt.instanceName, results, logger)
 
 			if tt.nodeMissing {
 				require.Error(t, err)
