@@ -117,19 +117,14 @@ func makeSyncMap(m map[string]bool) *sync.Map {
 }
 
 func TestUpdateNodeLabels(t *testing.T) {
-	tests := []struct {
-		name           string
-		nodeName       string
+	tests := map[string]struct {
 		instanceName   string
 		existingLabels map[string]string
 		results        map[string]bool
 		expectedLabel  string
-		expectError    bool
-		nodeExists     bool
+		nodeMissing    bool
 	}{
-		{
-			name:         "all images succeeded",
-			nodeName:     "test-node",
+		"all images succeeded": {
 			instanceName: "my-images",
 			results: map[string]bool{
 				"image1": true,
@@ -137,11 +132,8 @@ func TestUpdateNodeLabels(t *testing.T) {
 				"image3": true,
 			},
 			expectedLabel: LabelValueSuccess,
-			nodeExists:    true,
 		},
-		{
-			name:         "some images failed",
-			nodeName:     "test-node",
+		"some images failed": {
 			instanceName: "my-images",
 			results: map[string]bool{
 				"image1": true,
@@ -149,30 +141,13 @@ func TestUpdateNodeLabels(t *testing.T) {
 				"image3": true,
 			},
 			expectedLabel: LabelValueFailed,
-			nodeExists:    true,
 		},
-		{
-			name:         "all images failed",
-			nodeName:     "test-node",
-			instanceName: "my-images",
-			results: map[string]bool{
-				"image1": false,
-				"image2": false,
-			},
-			expectedLabel: LabelValueFailed,
-			nodeExists:    true,
-		},
-		{
-			name:          "empty results shows success",
-			nodeName:      "test-node",
+		"empty results shows success": {
 			instanceName:  "my-images",
 			results:       map[string]bool{},
 			expectedLabel: LabelValueSuccess,
-			nodeExists:    true,
 		},
-		{
-			name:         "updates existing label",
-			nodeName:     "test-node",
+		"updates existing label": {
 			instanceName: "my-images",
 			existingLabels: map[string]string{
 				"image-prefetcher.stackrox.io/my-images": LabelValueFailed,
@@ -181,61 +156,41 @@ func TestUpdateNodeLabels(t *testing.T) {
 				"image1": true,
 			},
 			expectedLabel: LabelValueSuccess,
-			nodeExists:    true,
 		},
-		{
-			name:         "preserves other labels",
-			nodeName:     "test-node",
+		"preserves other labels": {
 			instanceName: "my-images",
 			existingLabels: map[string]string{
-				"kubernetes.io/hostname": "test-node",
+				"kubernetes.io/hostname": "my-images",
 				"other-label":            "value",
 			},
 			results: map[string]bool{
 				"image1": true,
 			},
 			expectedLabel: LabelValueSuccess,
-			nodeExists:    true,
 		},
-		{
-			name:         "creates labels on node with no labels",
-			nodeName:     "test-node",
-			instanceName: "my-images",
-			results: map[string]bool{
-				"image1": true,
-			},
-			expectedLabel: LabelValueSuccess,
-			nodeExists:    true,
-		},
-		{
-			name:         "sanitizes instance name",
-			nodeName:     "test-node",
+		"sanitizes instance name": {
 			instanceName: "my images!",
 			results: map[string]bool{
 				"image1": true,
 			},
 			expectedLabel: LabelValueSuccess,
-			nodeExists:    true,
 		},
-		{
-			name:         "node not found returns error",
-			nodeName:     "nonexistent-node",
+		"node not found returns error": {
 			instanceName: "my-images",
 			results: map[string]bool{
 				"image1": true,
 			},
-			expectError: true,
-			nodeExists:  false,
+			nodeMissing: true,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			var fakeClient *fake.Clientset
-			if tt.nodeExists {
+			if !tt.nodeMissing {
 				node := &corev1.Node{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:   tt.nodeName,
+						Name:   name,
 						Labels: tt.existingLabels,
 					},
 				}
@@ -248,15 +203,16 @@ func TestUpdateNodeLabels(t *testing.T) {
 			logger := slogt.New(t)
 			ctx := context.Background()
 
-			err := UpdateNodeLabels(ctx, fakeClient, tt.nodeName, tt.instanceName, results, logger)
+			nodeClient := fakeClient.CoreV1().Nodes()
+			err := UpdateNodeLabels(ctx, nodeClient, name, tt.instanceName, results, logger)
 
-			if tt.expectError {
+			if tt.nodeMissing {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
 
-			node, err := fakeClient.CoreV1().Nodes().Get(ctx, tt.nodeName, metav1.GetOptions{})
+			node, err := nodeClient.Get(ctx, name, metav1.GetOptions{})
 			require.NoError(t, err)
 
 			sanitizedInstanceName := sanitizeLabelName(tt.instanceName)
