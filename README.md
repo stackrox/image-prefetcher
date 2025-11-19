@@ -65,7 +65,7 @@ It also optionally collects each pull attempt's duration and result.
    ```
    kubectl create namespace prefetch-images
    kubectl create -n prefetch-images configmap my-images --from-file="images.txt=image-list.txt"
-   kubectl apply -n prefetch-images -f manifest.yaml
+   kubectl apply -f manifest.yaml
    ```
 
 4. Wait for the pull to complete, with a timeout:

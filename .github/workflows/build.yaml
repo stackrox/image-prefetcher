@@ -258,7 +258,7 @@ jobs:
       - name: Deploy prefetcher
         run: |
           set -e
-         
+
           echo busybox:latest >> images.txt
           echo debian:sid >> images.txt
 
@@ -268,8 +268,9 @@ jobs:
             --version="sha-$(git rev-parse --short HEAD)" \
             --k8s-flavor=vanilla \
             --collect-metrics \
+            --namespace="$NS" \
             "${NAME}" >> manifest.yaml
-          
+
           kubectl create namespace "$NS"
           kubectl apply -n "$NS" -f manifest.yaml
 
@@ -279,7 +280,7 @@ jobs:
 
           info() { echo "$@"; }
           die() { info "$@"; exit 1; }
-          
+
           attempt=0
           service="service/${NAME}-metrics"
           while [[ -z $(kubectl -n "${NS}" get "${service}" -o jsonpath="{.status.loadBalancer.ingress}" 2>/dev/null) ]]; do
@@ -291,7 +292,7 @@ jobs:
               die "ERROR: Timeout waiting for ${service} to obtain endpoint!"
             fi
           done
-          
+
           endpoint="$(kubectl -n "${NS}" get "${service}" -o json | jq -r '.status.loadBalancer.ingress[] | .ip')"
           curl --silent --show-error --fail --retry 3 --retry-connrefused "http://${endpoint}:8080/metrics" > metrics.json
 
