@@ -14,65 +14,54 @@ import (
 )
 
 func TestSanitizeLabelName(t *testing.T) {
-	tests := []struct {
-		name     string
+	tests := map[string]struct {
 		input    string
 		expected string
 	}{
-		{
-			name:     "simple name",
+		"simple name": {
 			input:    "my-images",
 			expected: "my-images",
 		},
-		{
-			name:     "with underscores",
+		"with underscores": {
 			input:    "my_images",
 			expected: "my_images",
 		},
-		{
-			name:     "with dots",
+		"with dots": {
 			input:    "my.images",
 			expected: "my.images",
 		},
-		{
-			name:     "with spaces (invalid)",
+		"with spaces (invalid)": {
 			input:    "my images",
 			expected: "my-images",
 		},
-		{
-			name:     "starts with dash (invalid)",
+		"starts with dash (invalid)": {
 			input:    "-my-images",
 			expected: "my-images",
 		},
-		{
-			name:     "ends with dash (invalid)",
+		"ends with dash (invalid)": {
 			input:    "my-images-",
 			expected: "my-images",
 		},
-		{
-			name:     "too long",
+		"too long": {
 			input:    "this-is-a-very-long-instance-name-that-exceeds-sixty-three-characters-and-should-be-truncated",
 			expected: "this-is-a-very-long-instance-name-that-exceeds-sixty-three-char",
 		},
-		{
-			name:     "special characters",
+		"special characters": {
 			input:    "my@images!",
 			expected: "my-images",
 		},
-		{
-			name:     "empty string",
+		"empty string": {
 			input:    "",
 			expected: "prefetcher",
 		},
-		{
-			name:     "only invalid chars",
+		"only invalid chars": {
 			input:    "!!!",
 			expected: "prefetcher",
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			output := sanitizeLabelName(tt.input)
 			assert.Equal(t, tt.expected, output)
 		})
