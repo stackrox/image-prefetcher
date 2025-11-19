@@ -1,6 +1,7 @@
 # Node Labeling
 
-The image prefetcher automatically labels nodes based on the overall success or failure of the prefetch operation. This allows deployments to use label selectors to schedule pods only on nodes where all images have been successfully prefetched.
+The image prefetcher automatically labels nodes based on the overall success or failure of the prefetch operation.
+This allows deployments to use label selectors to schedule pods only on nodes where all images have been successfully prefetched.
 
 ## Label Format
 
@@ -11,7 +12,8 @@ The prefetcher creates a single label per instance on each node:
   - `succeeded` - if ALL images were successfully pulled
   - `failed` - if ANY image failed to pull
 
-The instance name in the label key is the name you provide when deploying (e.g., `my-images`). Multiple independent prefetcher instances can run simultaneously, each creating its own label.
+The instance name in the label key is the name you provide when deploying (e.g., `my-images`).
+Multiple independent prefetcher instances can run simultaneously, each creating its own label.
 
 ## Example Label
 
@@ -72,4 +74,5 @@ kubectl get nodes -l 'image-prefetcher.stackrox.io'
 
 ## RBAC Requirements
 
-The node labeling feature requires `get`, `patch`, and `update` permissions on `nodes` resources. A `ServiceAccount`, `ClusterRole`, and `ClusterRoleBinding` that satisfy them are automatically included in the generated manifests.
+The node labeling feature requires `get`, `patch`, and `update` permissions on `nodes` resources.
+A `ServiceAccount`, `ClusterRole`, and `ClusterRoleBinding` that satisfy them are automatically included in the generated manifests.
