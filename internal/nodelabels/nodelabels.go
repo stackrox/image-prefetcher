@@ -69,7 +69,10 @@ func PatchNodeLabels(ctx context.Context, results *sync.Map, logger *slog.Logger
 
 	logger.Info("Kubernetes client initialized for node labeling", "node", nodeName, "instance", instanceName)
 
-	if err := patchNodeLabelsWithClient(ctx, nodeClient, nodeName, instanceName, results, logger); err != nil {
+	// Generate labels based on prefetch results
+	labels := generatePrefetchStatusLabels(instanceName, results)
+
+	if err := patchNodeLabelsWithClient(ctx, nodeClient, nodeName, labels, logger); err != nil {
 		return fmt.Errorf("failed to update node labels: %w", err)
 	}
 
@@ -98,13 +101,9 @@ func sanitizeLabelName(s string) string {
 	return sanitized
 }
 
-func retryAll(err error) bool {
-	return true
-}
-
-// patchNodeLabelsWithClient updates the labels on a node to reflect the overall prefetch status.
-// Uses PATCH instead of UPDATE to reduce conflicts and avoid fetching the entire node object.
-func patchNodeLabelsWithClient(ctx context.Context, nodeClient corev1.NodeInterface, nodeName, instanceName string, results *sync.Map, logger *slog.Logger) error {
+// generatePrefetchStatusLabels creates a map of labels based on prefetch results.
+// This is a pure function that determines the label key and value without side effects.
+func generatePrefetchStatusLabels(instanceName string, results *sync.Map) map[string]string {
 	// Determine overall status: success if ALL images succeeded, failed otherwise.
 	labelValue := LabelValueSuccess
 	results.Range(func(key, value interface{}) bool {
@@ -118,30 +117,38 @@ func patchNodeLabelsWithClient(ctx context.Context, nodeClient corev1.NodeInterf
 	sanitizedInstanceName := sanitizeLabelName(instanceName)
 	labelKey := LabelPrefix + sanitizedInstanceName
 
-	logger.Info("Setting prefetch status node label", "key", labelKey, "value", labelValue)
+	return map[string]string{labelKey: labelValue}
+}
+
+func retryAll(err error) bool {
+	return true
+}
+
+// patchNodeLabelsWithClient updates the labels on a node with the provided label map.
+// Uses PATCH instead of UPDATE to reduce conflicts and avoid fetching the entire node object.
+func patchNodeLabelsWithClient(ctx context.Context, nodeClient corev1.NodeInterface, nodeName string, labels map[string]string, logger *slog.Logger) error {
+	logger.Debug("Setting prefetch status node labels", "labels", labels)
 
 	type patchPayload struct {
 		Metadata struct {
 			Labels map[string]string `json:"labels"`
 		} `json:"metadata"`
 	}
+	patch := patchPayload{}
+	patch.Metadata.Labels = labels
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch: %w", err)
+	}
 
-	err := retry.OnError(retry.DefaultBackoff, retryAll, func() error {
-		patch := patchPayload{}
-		patch.Metadata.Labels = map[string]string{labelKey: labelValue}
-
-		patchBytes, err := json.Marshal(patch)
-		if err != nil {
-			return fmt.Errorf("failed to marshal patch: %w", err)
-		}
-
-		_, err = nodeClient.Patch(ctx, nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+	err = retry.OnError(retry.DefaultBackoff, retryAll, func() error {
+		_, err := nodeClient.Patch(ctx, nodeName, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to patch node %s: %w", nodeName, err)
 	}
 
-	logger.Info("Successfully updated node label", "node", nodeName, "instance", instanceName, "status", labelValue)
+	logger.Info("Successfully updated node labels", "node", nodeName, "labels", labels)
 	return nil
 }
