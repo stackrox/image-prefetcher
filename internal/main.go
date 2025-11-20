@@ -12,6 +12,7 @@ import (
 	"github.com/stackrox/image-prefetcher/internal/credentialprovider"
 	metricsProto "github.com/stackrox/image-prefetcher/internal/metrics/gen"
 	"github.com/stackrox/image-prefetcher/internal/metrics/submitter"
+	"github.com/stackrox/image-prefetcher/internal/nodelabels"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
@@ -49,13 +50,16 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 			return fmt.Errorf("failed to dial metrics endpoint %q: %w", metricsEndpoint, err)
 		}
 		metricsSink = submitter.NewSubmitter(logger, metricsProto.NewMetricsClient(metricsConn))
-		go func() { _ = metricsSink.Run(ctx) }() // returned error is for testing, sink already handles errors
+		go func() { _ = metricsSink.Run(ctx) }() // Returned error is for testing, sink already handles errors.
 	}
 
 	kr := credentialprovider.BasicDockerKeyring{}
 	if err := loadPullSecret(logger, &kr, dockerConfigJSONPath); err != nil {
 		return fmt.Errorf("failed to load image pull secrets: %w", err)
 	}
+
+	// Track results per image. Multiple goroutines (different auths) may update the same image.
+	var results sync.Map // map[string]bool (imageRef -> success status)
 
 	var wg sync.WaitGroup
 	for _, imageName := range imageNames {
@@ -68,12 +72,18 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 				},
 				Auth: auth,
 			}
-			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, metricsSink.Chan(), imageName, request, timing)
+			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, metricsSink.Chan(), imageName, request, timing, &results)
 		}
 	}
 	wg.Wait()
 	logger.Info("pulling images finished")
 	metricsSink.Await()
+
+	// Don't fail the overall operation if node labeling fails.
+	if err := nodelabels.PatchNodeLabels(ctx, &results, logger); err != nil {
+		logger.Error("failed to update node labels", "error", err)
+	}
+
 	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "after"); err != nil {
 		return fmt.Errorf("failed to list images for debugging after pulling: %w", err)
 	}
@@ -137,7 +147,7 @@ func getAuthsForImage(ctx context.Context, logger *slog.Logger, kr credentialpro
 	return auths
 }
 
-func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, metricsSink chan<- *metricsProto.Result, name string, request *criV1.PullImageRequest, timing TimingConfig) {
+func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, metricsSink chan<- *metricsProto.Result, name string, request *criV1.PullImageRequest, timing TimingConfig, results *sync.Map) {
 	defer wg.Done()
 	attemptTimeout := timing.InitialPullAttemptTimeout
 	delay := timing.InitialPullAttemptDelay
@@ -152,12 +162,16 @@ func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.Wai
 			logger.InfoContext(ctx, "image pulled successfully", "response", response, "elapsed", elapsed)
 			sizeBytes := getImageSize(ctx, logger, client, response)
 			noteSuccess(metricsSink, name, start, elapsed, sizeBytes)
+			// Always store success, overwriting any previous failure from another auth.
+			results.Store(name, true)
 			return
 		}
 		logger.ErrorContext(ctx, "image failed to pull", "error", err, "timeout", attemptTimeout, "elapsed", elapsed)
 		noteFailure(metricsSink, name, start, elapsed, err)
 		if ctx.Err() != nil {
 			logger.ErrorContext(ctx, "not retrying any more", "error", ctx.Err())
+			// Only store failure if no result exists yet (don't overwrite success from another auth).
+			results.LoadOrStore(name, false)
 			return
 		}
 		// Be exponentially more patient on each attempt, but prevent overflows.

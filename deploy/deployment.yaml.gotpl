@@ -1,8 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Name }}-node-labeler
+  annotations:
+    kubernetes.io/description: "Allows the image-prefetcher to label nodes with prefetch status for instance {{ .Name }} in namespace {{ .Namespace }}."
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Name }}-node-labeler
+  annotations:
+    kubernetes.io/description: "Grants node labeling permissions to image-prefetcher ServiceAccount {{ .Name }} in namespace {{ .Namespace }}."
+subjects:
+- kind: ServiceAccount
+  name: {{ .Name }}
+  namespace: {{ .Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Name }}-node-labeler
+---
 {{ if .NeedsPrivileged }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: privileged-scc-use
+  namespace: {{ .Namespace }}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -17,9 +50,10 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: prefetcher-privileged
+  namespace: {{ .Namespace }}
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: {{ .Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -31,6 +65,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Name }}-metrics
+  namespace: {{ .Namespace }}
   labels:
     app: {{ .Name }}-metrics
 spec:
@@ -69,6 +104,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Name }}-metrics
+  namespace: {{ .Namespace }}
 spec:
   ports:
   - name: grpc
@@ -86,6 +122,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ .Name }}
+  namespace: {{ .Namespace }}
   annotations:
     ignore-check.kube-linter.io/privilege-escalation-container: "Needs access to CRI socket."
     ignore-check.kube-linter.io/privileged-container: "Needs access to CRI socket."
@@ -103,6 +140,7 @@ spec:
         openshift.io/required-scc: privileged
       {{ end }}
     spec:
+      serviceAccountName: {{ .Name }}
       tolerations:
       # Broad toleration to match stackrox collector.
       - operator: "Exists"
@@ -123,6 +161,13 @@ spec:
         {{ if .CollectMetrics }}
         - "--metrics-endpoint={{ .Name }}-metrics:8443"
         {{ end }}
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: INSTANCE_NAME
+          value: {{ .Name }}
         resources:
           requests:
             cpu: "20m"

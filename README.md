@@ -39,6 +39,7 @@ It also optionally collects each pull attempt's duration and result.
 
    It also accepts a few optional flags:
    - `--version`: `image-prefetcher` OCI image tag. See [list of existing tags](https://quay.io/repository/mowsiany/image-prefetcher?tab=tags).
+   - `--namespace`: namespace where the image prefetcher will be deployed (default: `default`). Used for ClusterRoleBinding. Must be specified unless deploying to the `default` namespace.
    - `--k8s-flavor` depending on the cluster. Currently one of:
      - `vanilla`: a generic Kubernetes distribution without additional restrictions.
      - `ocp`: OpenShift, which requires explicitly granting special privileges.
@@ -50,7 +51,7 @@ It also optionally collects each pull attempt's duration and result.
    Example:
 
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 my-images > manifest.yaml
+   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 --namespace prefetch-images my-images > manifest.yaml
    ```
 
 2. Prepare an image list. This should be a plain text file with one image name per line.
@@ -64,7 +65,7 @@ It also optionally collects each pull attempt's duration and result.
    ```
    kubectl create namespace prefetch-images
    kubectl create -n prefetch-images configmap my-images --from-file="images.txt=image-list.txt"
-   kubectl apply -n prefetch-images -f manifest.yaml
+   kubectl apply -f manifest.yaml
    ```
 
 4. Wait for the pull to complete, with a timeout:
@@ -94,8 +95,14 @@ It also optionally collects each pull attempt's duration and result.
    endpoint="$(kubectl -n "${ns}" get "${service}" -o json | jq -r '.status.loadBalancer.ingress[] | .ip')"
    curl "http://${endpoint}:8080/metrics" | jq
    ```
-   
+
    See the [Result](internal/metrics/metrics.proto) message definition for a list of fields.
+
+### Node Labeling
+
+The image prefetcher automatically labels nodes to indicate whether all images were successfully prefetched. This allows using label selectors to schedule pods only on nodes where images are available.
+
+For detailed information about label format, usage examples, and RBAC requirements, see [docs/labels.md](docs/labels.md).
 
 ### Customization
 
