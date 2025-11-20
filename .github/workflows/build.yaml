@@ -74,12 +74,13 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
+          flavor: suffix=-amd64
           tags: |
-            type=ref,event=branch,prefix=branch-,suffix=-amd64
-            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-amd64
-            type=semver,pattern=v{{major}}.{{minor}},suffix=-amd64
-            type=semver,pattern=v{{major}},suffix=-amd64
-            type=sha,suffix=-amd64
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
 
       - name: Build and push OCI amd64 image
         if: github.event_name != 'pull_request'
@@ -100,12 +101,13 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
+          flavor: suffix=-arm64
           tags: |
-            type=ref,event=branch,prefix=branch-,suffix=-arm64
-            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-arm64
-            type=semver,pattern=v{{major}}.{{minor}},suffix=-arm64
-            type=semver,pattern=v{{major}},suffix=-arm64
-            type=sha,suffix=-arm64
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
 
       - name: Build and push OCI arm64 image
         if: github.event_name != 'pull_request'
@@ -126,12 +128,13 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
+          flavor: suffix=-ppc64le
           tags: |
-            type=ref,event=branch,prefix=branch-,suffix=-ppc64le
-            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-ppc64le
-            type=semver,pattern=v{{major}}.{{minor}},suffix=-ppc64le
-            type=semver,pattern=v{{major}},suffix=-ppc64le
-            type=sha,suffix=-ppc64le
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
 
       - name: Build and push OCI ppc64le image
         if: github.event_name != 'pull_request'
@@ -152,12 +155,13 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
+          flavor: suffix=-s390x
           tags: |
-            type=ref,event=branch,prefix=branch-,suffix=-s390x
-            type=semver,pattern=v{{major}}.{{minor}}.{{patch}},suffix=-s390x
-            type=semver,pattern=v{{major}}.{{minor}},suffix=-s390x
-            type=semver,pattern=v{{major}},suffix=-s390x
-            type=sha,suffix=-s390x
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
 
       - name: Build and push OCI s390x image
         if: github.event_name != 'pull_request'
