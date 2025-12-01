@@ -74,7 +74,7 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
-          flavor: suffix=-amd64
+          flavor: suffix=-amd64,onlatest=true
           tags: |
             type=ref,event=branch,prefix=branch-
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
@@ -101,7 +101,7 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
-          flavor: suffix=-arm64
+          flavor: suffix=-arm64,onlatest=true
           tags: |
             type=ref,event=branch,prefix=branch-
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
@@ -128,7 +128,7 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
-          flavor: suffix=-ppc64le
+          flavor: suffix=-ppc64le,onlatest=true
           tags: |
             type=ref,event=branch,prefix=branch-
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
@@ -155,7 +155,7 @@ jobs:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
           # See https://github.com/docker/metadata-action
-          flavor: suffix=-s390x
+          flavor: suffix=-s390x,onlatest=true
           tags: |
             type=ref,event=branch,prefix=branch-
             type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
