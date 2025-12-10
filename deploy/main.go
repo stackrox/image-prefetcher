@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"text/template"
 )
@@ -49,6 +50,23 @@ func init() {
 	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
 }
 
+// processVersion processes the version string and returns the appropriate format.
+// For versions with dashes containing SHA (like v0.4.2-0.20251126115717-559dd9fd402f),
+// extracts short SHA and returns "sha-<shortSHA>" as long as the sha is at least 7 chars long.
+// Otherwise, returns as is
+func processVersion(version string) string {
+	// Pattern: vX.Y.Z-0.timestamp-SHA produced by `go mod tidy`.
+	dashRegex := regexp.MustCompile(`^v\d+\.\d+\.\d+-\d+\.\d+-([a-f0-9]+)$`)
+	matches := dashRegex.FindStringSubmatch(version)
+	if len(matches) != 2 {
+		return version
+	}
+	if fullSHA := matches[1]; len(fullSHA) >= 7 {
+		return fmt.Sprintf("sha-%s", fullSHA[:7])
+	}
+	return version
+}
+
 func main() {
 	flag.Parse()
 	if len(flag.Args()) < 1 {
@@ -63,7 +81,7 @@ func main() {
 		Name:            name,
 		Namespace:       namespace,
 		Image:           imageRepo,
-		Version:         version,
+		Version:         processVersion(version),
 		Secret:          secret,
 		IsCRIO:          isOcp,
 		NeedsPrivileged: isOcp,
