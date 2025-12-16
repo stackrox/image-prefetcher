@@ -236,7 +236,7 @@ jobs:
         uses: stackrox/actions/infra/install-infractl@main
 
       - name: Create GKE cluster
-        uses: stackrox/actions/infra/create-cluster@v1.0.27
+        uses: stackrox/actions/infra/create-cluster@v1.0.28
         with:
           token: ${{ secrets.INFRA_TOKEN }}
           flavor: gke-default
