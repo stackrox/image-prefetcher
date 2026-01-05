@@ -154,9 +154,9 @@ func TestUpdateNodeLabels(t *testing.T) {
 						Labels: tt.existingLabels,
 					},
 				}
-				fakeClient = fake.NewSimpleClientset(node)
+				fakeClient = fake.NewClientset(node)
 			} else {
-				fakeClient = fake.NewSimpleClientset()
+				fakeClient = fake.NewClientset()
 			}
 
 			results := makeSyncMap(tt.results)
