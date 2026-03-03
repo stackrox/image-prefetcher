@@ -46,7 +46,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 	if err != nil {
 		logger.Warn("failed to create containerd client for image pinning, images may be GC'd", "error", err)
 	} else {
-		defer ctrdClient.Close()
+		defer func() { _ = ctrdClient.Close() }()
 	}
 
 	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "before"); err != nil {
