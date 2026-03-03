@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/stackrox/image-prefetcher/internal/credentialprovider"
 	metricsProto "github.com/stackrox/image-prefetcher/internal/metrics/gen"
 	"github.com/stackrox/image-prefetcher/internal/metrics/submitter"
@@ -38,6 +39,15 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 		return fmt.Errorf("failed to dial CRI socket %q: %w", criSocketPath, err)
 	}
 	criClient := criV1.NewImageServiceClient(criConn)
+
+	// Connect to containerd directly (in addition to CRI) to pin images after pulling.
+	// The CRI API doesn't support setting image labels, but the containerd client does.
+	ctrdClient, err := containerd.New(criSocketPath, containerd.WithDefaultNamespace("k8s.io"))
+	if err != nil {
+		logger.Warn("failed to create containerd client for image pinning, images may be GC'd", "error", err)
+	} else {
+		defer ctrdClient.Close()
+	}
 
 	if err := listImagesForDebugging(ctx, logger, criClient, timing.ImageListTimeout, "before"); err != nil {
 		return fmt.Errorf("failed to list images for debugging before pulling: %w", err)
@@ -72,7 +82,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 				},
 				Auth: auth,
 			}
-			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, metricsSink.Chan(), imageName, request, timing, &results)
+			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i), &wg, criClient, ctrdClient, metricsSink.Chan(), imageName, request, timing, &results)
 		}
 	}
 	wg.Wait()
@@ -147,7 +157,7 @@ func getAuthsForImage(ctx context.Context, logger *slog.Logger, kr credentialpro
 	return auths
 }
 
-func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, metricsSink chan<- *metricsProto.Result, name string, request *criV1.PullImageRequest, timing TimingConfig, results *sync.Map) {
+func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, ctrdClient *containerd.Client, metricsSink chan<- *metricsProto.Result, name string, request *criV1.PullImageRequest, timing TimingConfig, results *sync.Map) {
 	defer wg.Done()
 	attemptTimeout := timing.InitialPullAttemptTimeout
 	delay := timing.InitialPullAttemptDelay
@@ -161,6 +171,7 @@ func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.Wai
 		if err == nil {
 			logger.InfoContext(ctx, "image pulled successfully", "response", response, "elapsed", elapsed)
 			sizeBytes := getImageSize(ctx, logger, client, response)
+			pinImage(ctx, logger, ctrdClient, name)
 			noteSuccess(metricsSink, name, start, elapsed, sizeBytes)
 			// Always store success, overwriting any previous failure from another auth.
 			results.Store(name, true)
@@ -207,6 +218,53 @@ func noteSuccess(sink chan<- *metricsProto.Result, name string, start time.Time,
 		SizeBytes:  sizeBytes,
 	}
 }
+// pinImage labels an image in containerd's image store as pinned, which tells
+// kubelet's image GC to skip it. This uses the containerd native client API
+// because the CRI API doesn't support setting image labels.
+func pinImage(ctx context.Context, logger *slog.Logger, ctrdClient *containerd.Client, imageName string) {
+	if ctrdClient == nil {
+		return
+	}
+	imageStore := ctrdClient.ImageService()
+	// List all images matching this name to find all references (tag, digest, etc.)
+	imgs, err := imageStore.List(ctx, "name=="+imageName)
+	if err != nil {
+		logger.Warn("failed to list images for pinning", "image", imageName, "error", err)
+		return
+	}
+	pinLabel := map[string]string{"io.cri-containerd.pinned": "pinned"}
+	pinned := 0
+	for _, img := range imgs {
+		// Merge the pinned label with existing labels
+		fields := make(map[string]string)
+		for k, v := range img.Labels {
+			fields["labels."+k] = v
+		}
+		fields["labels.io.cri-containerd.pinned"] = "pinned"
+		img.Labels = mergeMaps(img.Labels, pinLabel)
+		_, err := imageStore.Update(ctx, img, "labels.io.cri-containerd.pinned")
+		if err != nil {
+			logger.Warn("failed to pin image", "image", img.Name, "error", err)
+		} else {
+			pinned++
+		}
+	}
+	if pinned > 0 {
+		logger.Info("pinned image against GC", "image", imageName, "references", pinned)
+	}
+}
+
+func mergeMaps(base, overlay map[string]string) map[string]string {
+	result := make(map[string]string, len(base)+len(overlay))
+	for k, v := range base {
+		result[k] = v
+	}
+	for k, v := range overlay {
+		result[k] = v
+	}
+	return result
+}
+
 func noteFailure(sink chan<- *metricsProto.Result, name string, start time.Time, elapsed time.Duration, err error) {
 	if sink == nil {
 		return
