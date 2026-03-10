@@ -23,4 +23,6 @@ jobs:
 
       - name: Report result
         if: steps.map-tag.outputs.skipped == 'false'
-        run: echo "Successfully generated tag ${{ steps.map-tag.outputs.new-tag }}"
+        env:
+          TAG: ${{ steps.map-tag.outputs.new-tag }}
+        run: echo "Successfully generated tag $TAG"
