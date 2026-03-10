@@ -131,11 +131,6 @@ This is because all images are pulled from all nodes in parallel.
 3. Publish the release
 4. Make sure the build GitHub Action that gets triggered by the tag runs successfully and pushes images.
 5. It is also a good idea to wait for the e2e job to pass before proceeding.
-6. Create a tag for the `deploy` module
-   1. This is the tag that `go run github.com/stackrox/image-prefetcher/deploy@vx.y.z` looks for (since its `go.mod` is
-      not in the repository root)
-   2. Currently, this needs to be done manually since GitHub UI does not seem to allow creation of tags without
-      an associated release. TODO: [automate this](https://github.com/stackrox/image-prefetcher/issues/30)
-   3. Check out the tagged commit in your clone
-   4. `git tag deploy/vx.y.z`
-   5. `git push --tags`
+6. Make sure that the GitHub action which creates a tag for the `deploy` module, succeeds.
+   (This is the tag that `go run github.com/stackrox/image-prefetcher/deploy@vx.y.z` looks for (since its `go.mod` is
+   not in the repository root).
