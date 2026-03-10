@@ -1,0 +1,28 @@
+name: Tag deploy CLI tool
+
+on:
+  push:
+    tags:
+      - '*' # Triggers on all tags, but the action skips non-semver ones.
+
+jobs:
+  create-mangled-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to create a new tag via API
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create mapped tag
+        id: map-tag
+        uses: stackrox/clone-tag@v1
+        with:
+          prefix: 'deploy/'
+
+      - name: Report result
+        if: steps.map-tag.outputs.skipped == 'false'
+        env:
+          TAG: ${{ steps.map-tag.outputs.new-tag }}
+        run: echo "Successfully generated tag $TAG"
