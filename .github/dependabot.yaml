@@ -6,6 +6,9 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'tuesday'
+    labels:
+    - "dependencies"
+    - "auto-merge"
   - package-ecosystem: 'gomod'
     directory: '/'
     schedule:
@@ -16,15 +19,24 @@ updates:
       k8s.io:
         patterns:
           - "k8s.io/*"
+    labels:
+    - "dependencies"
+    - "auto-merge"
   - package-ecosystem: 'gomod'
     directory: '/deploy/tools'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
     open-pull-requests-limit: 3
+    labels:
+    - "dependencies"
+    - "auto-merge"
   - package-ecosystem: 'gomod'
     directory: '/internal/metrics/tools'
     schedule:
       interval: 'weekly'
       day: 'tuesday'
     open-pull-requests-limit: 3
+    labels:
+    - "dependencies"
+    - "auto-merge"
