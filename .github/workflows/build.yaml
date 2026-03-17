@@ -69,7 +69,7 @@ jobs:
 
       - name: Prepare manifest OCI metadata for amd64
         id: meta-amd64
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
@@ -96,7 +96,7 @@ jobs:
 
       - name: Prepare manifest OCI metadata for arm64
         id: meta-arm64
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
@@ -123,7 +123,7 @@ jobs:
 
       - name: Prepare manifest OCI metadata for ppc64le
         id: meta-ppc64le
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
@@ -150,7 +150,7 @@ jobs:
 
       - name: Prepare manifest OCI metadata for s390x
         id: meta-s390x
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
@@ -177,7 +177,7 @@ jobs:
 
       - name: Prepare manifest OCI metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: "quay.io/stackrox-io/image-prefetcher"
           # generate Docker tags based on the following events/attributes
