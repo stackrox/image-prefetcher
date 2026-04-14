@@ -13,6 +13,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	credentialproviderv1 "k8s.io/kubelet/pkg/apis/credentialprovider/v1"
 	"k8s.io/kubelet/pkg/apis/credentialprovider/install"
 	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
@@ -28,8 +29,8 @@ var (
 
 func init() {
 	install.Install(scheme)
-	kubeletconfig.AddToScheme(scheme)
-	kubeletconfigv1.AddToScheme(scheme)
+	utilruntime.Must(kubeletconfig.AddToScheme(scheme))
+	utilruntime.Must(kubeletconfigv1.AddToScheme(scheme))
 }
 
 // PluginKeyring wraps the credential provider plugin functionality.
