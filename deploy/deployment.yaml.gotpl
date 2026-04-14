@@ -163,6 +163,10 @@ spec:
         {{ if .CollectMetrics }}
         - "--metrics-endpoint={{ .Name }}-metrics:8443"
         {{ end }}
+        {{ if eq .UseKubeletImageCredentialIntegration "GKE" }}
+        - "--image-credential-provider-config=/tmp/credential-provider/cri_auth_config.yaml"
+        - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
+        {{ end }}
         env:
         - name: NODE_NAME
           valueFrom:
@@ -187,6 +191,14 @@ spec:
         {{ if .Secret }}
         - mountPath: /tmp/pull-secret
           name: pull-secret
+          readOnly: true
+        {{ end }}
+        {{ if eq .UseKubeletImageCredentialIntegration "GKE" }}
+        - mountPath: /tmp/credential-provider
+          name: credential-provider-config
+          readOnly: true
+        - mountPath: /tmp/credential-provider-bin
+          name: credential-provider-bin
           readOnly: true
         {{ end }}
         securityContext:
@@ -224,4 +236,14 @@ spec:
       - name: pull-secret
         secret:
           secretName: {{ .Secret }}
+      {{ end }}
+      {{ if eq .UseKubeletImageCredentialIntegration "GKE" }}
+      - name: credential-provider-config
+        hostPath:
+          path: /etc/srv/kubernetes
+          type: Directory
+      - name: credential-provider-bin
+        hostPath:
+          path: /home/kubernetes/bin
+          type: Directory
       {{ end }}

@@ -12,14 +12,15 @@ import (
 )
 
 type settings struct {
-	Name            string
-	Namespace       string
-	Image           string
-	Version         string
-	Secret          string
-	IsCRIO          bool
-	NeedsPrivileged bool
-	CollectMetrics  bool
+	Name                                  string
+	Namespace                             string
+	Image                                 string
+	Version                               string
+	Secret                                string
+	IsCRIO                                bool
+	NeedsPrivileged                       bool
+	CollectMetrics                        bool
+	UseKubeletImageCredentialIntegration  string
 }
 
 const (
@@ -35,11 +36,12 @@ const imageRepo = "quay.io/stackrox-io/image-prefetcher"
 var deploymentTemplate string
 
 var (
-	version        string
-	namespace      string
-	k8sFlavor      k8sFlavorType
-	secret         string
-	collectMetrics bool
+	version                              string
+	namespace                            string
+	k8sFlavor                            k8sFlavorType
+	secret                               string
+	collectMetrics                       bool
+	useKubeletImageCredentialIntegration string
 )
 
 func init() {
@@ -48,6 +50,7 @@ func init() {
 	flag.TextVar(&k8sFlavor, "k8s-flavor", flavor(vanillaFlavor), fmt.Sprintf("Kubernetes flavor. Accepted values: %s", strings.Join(allFlavors, ",")))
 	flag.StringVar(&secret, "secret", "", "Kubernetes image pull Secret to use when pulling.")
 	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
+	flag.StringVar(&useKubeletImageCredentialIntegration, "use-kubelet-image-credential-integration", "", "Enable kubelet image credential provider plugin integration. Accepted values: GKE")
 }
 
 // processVersion processes the version string and returns the appropriate format.
@@ -78,14 +81,15 @@ func main() {
 	isOcp := k8sFlavor == ocpFlavor
 
 	s := settings{
-		Name:            name,
-		Namespace:       namespace,
-		Image:           imageRepo,
-		Version:         processVersion(version),
-		Secret:          secret,
-		IsCRIO:          isOcp,
-		NeedsPrivileged: isOcp,
-		CollectMetrics:  collectMetrics,
+		Name:                                 name,
+		Namespace:                            namespace,
+		Image:                                imageRepo,
+		Version:                              processVersion(version),
+		Secret:                               secret,
+		IsCRIO:                               isOcp,
+		NeedsPrivileged:                      isOcp,
+		CollectMetrics:                       collectMetrics,
+		UseKubeletImageCredentialIntegration: useKubeletImageCredentialIntegration,
 	}
 	tmpl := template.Must(template.New("deployment").Parse(deploymentTemplate))
 	if err := tmpl.Execute(os.Stdout, s); err != nil {
