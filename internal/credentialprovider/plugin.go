@@ -11,10 +11,26 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	credentialproviderv1 "k8s.io/kubelet/pkg/apis/credentialprovider/v1"
+	"k8s.io/kubelet/pkg/apis/credentialprovider/install"
+	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
+	kubeletconfigv1 "k8s.io/kubernetes/pkg/kubelet/apis/config/v1"
 )
 
 const supportedAPIVersion = "kubelet.k8s.io/v1"
+
+var (
+	scheme = runtime.NewScheme()
+	codecs = serializer.NewCodecFactory(scheme, serializer.EnableStrict)
+)
+
+func init() {
+	install.Install(scheme)
+	kubeletconfig.AddToScheme(scheme)
+	kubeletconfigv1.AddToScheme(scheme)
+}
 
 // PluginKeyring wraps the credential provider plugin functionality.
 type PluginKeyring struct {
@@ -28,28 +44,6 @@ type pluginProviderWrapper struct {
 	apiVersion  string
 	matchImages []string
 	args        []string
-}
-
-// credentialProviderConfig represents the credential provider configuration file.
-type credentialProviderConfig struct {
-	APIVersion string                    `json:"apiVersion"`
-	Kind       string                    `json:"kind"`
-	Providers  []credentialProviderEntry `json:"providers"`
-}
-
-type credentialProviderEntry struct {
-	Name                 string   `json:"name"`
-	APIVersion           string   `json:"apiVersion"`
-	MatchImages          []string `json:"matchImages"`
-	Args                 []string `json:"args,omitempty"`
-	DefaultCacheDuration string   `json:"defaultCacheDuration,omitempty"`
-	Env                  []envVar `json:"env,omitempty"`
-	TokenAttributes      []string `json:"tokenAttributes,omitempty"`
-}
-
-type envVar struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
 }
 
 // NewPluginKeyring creates a new keyring that uses credential provider plugins.
@@ -88,23 +82,33 @@ func NewPluginKeyring(logger *slog.Logger, configPath, binDir string) (*PluginKe
 	return kr, nil
 }
 
-// readCredentialProviderConfig reads and parses the credential provider config file.
-func readCredentialProviderConfig(configPath string) (*credentialProviderConfig, error) {
+// readCredentialProviderConfig reads and decodes the credential provider config file.
+// Supports both YAML and JSON formats.
+func readCredentialProviderConfig(configPath string) (*kubeletconfig.CredentialProviderConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	var config credentialProviderConfig
-	if err := json.Unmarshal(data, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	obj, gvk, err := codecs.UniversalDecoder().Decode(data, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
 
-	if config.Kind != "CredentialProviderConfig" {
-		return nil, fmt.Errorf("unexpected kind %q, expected CredentialProviderConfig", config.Kind)
+	if gvk.Kind != "CredentialProviderConfig" {
+		return nil, fmt.Errorf("unexpected kind %q, expected CredentialProviderConfig", gvk.Kind)
 	}
 
-	return &config, nil
+	if gvk.Group != kubeletconfig.GroupName {
+		return nil, fmt.Errorf("unexpected group %q, expected %q", gvk.Group, kubeletconfig.GroupName)
+	}
+
+	config, ok := obj.(*kubeletconfig.CredentialProviderConfig)
+	if !ok {
+		return nil, fmt.Errorf("unable to convert %T to *CredentialProviderConfig", obj)
+	}
+
+	return config, nil
 }
 
 // Lookup is like Lookup(context.Background(), ...).
