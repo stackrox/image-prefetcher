@@ -112,7 +112,7 @@ func readCredentialProviderConfig(configPath string) (*kubeletconfig.CredentialP
 	return config, nil
 }
 
-// Lookup is like Lookup(context.Background(), ...).
+// Lookup is like LookupWithCtx(context.Background(), ...).
 func (kr *PluginKeyring) Lookup(image string) ([]AuthConfig, bool) {
 	return kr.LookupWithCtx(context.Background(), image)
 }
