@@ -146,27 +146,6 @@ func (kr *PluginKeyring) LookupWithCtx(ctx context.Context, image string) ([]Aut
 	return nil, false
 }
 
-// LookupForKeyring returns credentials formatted for the DockerKeyring interface.
-func (kr *PluginKeyring) LookupForKeyring(image string) DockerConfig {
-	creds, ok := kr.Lookup(image)
-	if !ok {
-		return DockerConfig{}
-	}
-
-	cfg := DockerConfig{}
-	for _, cred := range creds {
-		registry := cred.ServerAddress
-		if registry == "" {
-			registry = image
-		}
-		cfg[registry] = DockerConfigEntry{
-			Username: cred.Username,
-			Password: cred.Password,
-		}
-	}
-	return cfg
-}
-
 // matchesImage checks if any of the match patterns match the given image.
 func (kr *PluginKeyring) matchesImage(patterns []string, image string) bool {
 	for _, pattern := range patterns {
