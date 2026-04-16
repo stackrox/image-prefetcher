@@ -29,7 +29,7 @@ type TimingConfig struct {
 	MaxPullAttemptDelay       time.Duration
 }
 
-func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string, timing TimingConfig, metricsEndpoint string, imageNames ...string) error {
+func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string, credentialProviderConfig string, credentialProviderBinDir string, timing TimingConfig, metricsEndpoint string, imageNames ...string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timing.OverallTimeout)
 	defer cancel()
 
@@ -53,6 +53,12 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 		go func() { _ = metricsSink.Run(ctx) }() // Returned error is for testing, sink already handles errors.
 	}
 
+	// Initialize credential provider plugin keyring if configured
+	pluginKr, err := credentialprovider.NewPluginKeyring(logger, credentialProviderConfig, credentialProviderBinDir)
+	if err != nil {
+		return fmt.Errorf("failed to initialize credential provider plugins: %w", err)
+	}
+
 	kr := credentialprovider.BasicDockerKeyring{}
 	if err := loadPullSecret(logger, &kr, dockerConfigJSONPath); err != nil {
 		return fmt.Errorf("failed to load image pull secrets: %w", err)
@@ -63,7 +69,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 
 	var wg sync.WaitGroup
 	for _, imageName := range imageNames {
-		auths := getAuthsForImage(ctx, logger, &kr, imageName)
+		auths := getAuthsForImage(ctx, logger, pluginKr, &kr, imageName)
 		for i, auth := range auths {
 			wg.Add(1)
 			request := &criV1.PullImageRequest{
@@ -125,14 +131,27 @@ func loadPullSecret(logger *slog.Logger, kr *credentialprovider.BasicDockerKeyri
 	return nil
 }
 
-func getAuthsForImage(ctx context.Context, logger *slog.Logger, kr credentialprovider.DockerKeyring, imageName string) []*criV1.AuthConfig {
-	credsList, _ := kr.Lookup(imageName)
+func getAuthsForImage(ctx context.Context, logger *slog.Logger, pluginKr *credentialprovider.PluginKeyring, kr credentialprovider.DockerKeyring, imageName string) []*criV1.AuthConfig {
 	var auths []*criV1.AuthConfig
-	if len(credsList) == 0 {
-		logger.DebugContext(ctx, "no credentials present for image", "image", imageName)
-		// un-authenticated pull
-		auths = append(auths, nil)
+
+	// First, try plugin credentials
+	if pluginKr != nil {
+		pluginCreds, found := pluginKr.LookupWithCtx(ctx, imageName)
+		if found {
+			logger.DebugContext(ctx, "got credentials from plugin", "image", imageName, "count", len(pluginCreds))
+			for _, creds := range pluginCreds {
+				auth := &criV1.AuthConfig{
+					Username:      creds.Username,
+					Password:      creds.Password,
+					ServerAddress: creds.ServerAddress,
+				}
+				auths = append(auths, auth)
+			}
+		}
 	}
+
+	// Then, add pull secret credentials
+	credsList, _ := kr.Lookup(imageName)
 	for _, creds := range credsList {
 		auth := &criV1.AuthConfig{
 			Username:      creds.Username,
@@ -144,6 +163,13 @@ func getAuthsForImage(ctx context.Context, logger *slog.Logger, kr credentialpro
 		}
 		auths = append(auths, auth)
 	}
+
+	// If no credentials found at all, try un-authenticated pull
+	if len(auths) == 0 {
+		logger.DebugContext(ctx, "no credentials present for image", "image", imageName)
+		auths = append(auths, nil)
+	}
+
 	return auths
 }
 
@@ -207,6 +233,7 @@ func noteSuccess(sink chan<- *metricsProto.Result, name string, start time.Time,
 		SizeBytes:  sizeBytes,
 	}
 }
+
 func noteFailure(sink chan<- *metricsProto.Result, name string, start time.Time, elapsed time.Duration, err error) {
 	if sink == nil {
 		return

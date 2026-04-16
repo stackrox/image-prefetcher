@@ -49,6 +49,9 @@ It also optionally collects each pull attempt's duration and result.
      This image pull secret should be usable for all images fetched by the given instance.
      If provided, it must be of type `kubernetes.io/dockerconfigjson` and exist in the same namespace.
    - `--collect-metrics`: if the image pull metrics should be collected.
+   - `--use-kubelet-image-credential-integration=MODE`: enables kubelet [credential provider](https://kubernetes.io/blog/2022/12/22/kubelet-credential-providers/) plugin integration.
+     Plugin credentials fetched dynamically and tried for the images configured in the `CredentialProviderConfig` before pull secrets.
+     Currently only supports mode `GKE`, which uses `/etc/srv/kubernetes/cri_auth_config.yaml` and `/home/kubernetes/bin` mounted from the host.
 
    Example:
 

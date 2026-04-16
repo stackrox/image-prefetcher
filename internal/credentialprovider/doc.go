@@ -8,4 +8,7 @@
 // Therefore we have copy of the functionality necessary to use pull secrets the same way as kubernetes does.
 // The files we copied do not change often upstream, but ideally we should check for changes every kubernetes release
 // and update the permalink above to reflect the latest sync point.
+//
+// The file plugin.go contains a simplified plugin-based credential provider.
+// See https://github.com/kubernetes/kubernetes/blob/master/pkg/credentialprovider/plugin/plugin.go
 package credentialprovider

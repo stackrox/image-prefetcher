@@ -33,21 +33,23 @@ It talks to Container Runtime Interface API to pull images in parallel, with ret
 			return err
 		}
 		imageList = append(imageList, args...)
-		return internal.Run(logger, criSocket, dockerConfigJSONPath, timing, metricsEndpoint, imageList...)
+		return internal.Run(logger, criSocket, dockerConfigJSONPath, imageCredentialProviderConfig, imageCredentialProviderBinDir, timing, metricsEndpoint, imageList...)
 	},
 }
 
 var (
-	criSocket                 string
-	dockerConfigJSONPath      string
-	imageListFile             string
-	metricsEndpoint           string
-	imageListTimeout          = time.Minute
-	initialPullAttemptTimeout = 30 * time.Second
-	maxPullAttemptTimeout     = 5 * time.Minute
-	overallTimeout            = 20 * time.Minute
-	initialPullAttemptDelay   = time.Second
-	maxPullAttemptDelay       = 10 * time.Minute
+	criSocket                        string
+	dockerConfigJSONPath             string
+	imageListFile                    string
+	metricsEndpoint                  string
+	imageCredentialProviderConfig    string
+	imageCredentialProviderBinDir    string
+	imageListTimeout                 = time.Minute
+	initialPullAttemptTimeout        = 30 * time.Second
+	maxPullAttemptTimeout            = 5 * time.Minute
+	overallTimeout                   = 20 * time.Minute
+	initialPullAttemptDelay          = time.Second
+	maxPullAttemptDelay              = 10 * time.Minute
 )
 
 func init() {
@@ -58,6 +60,8 @@ func init() {
 	fetchCmd.Flags().StringVar(&dockerConfigJSONPath, "docker-config", "", "Path to docker config json file.")
 	fetchCmd.Flags().StringVar(&imageListFile, "image-list-file", "", "Path to text file containing images to pull (one per line).")
 	fetchCmd.Flags().StringVar(&metricsEndpoint, "metrics-endpoint", "", "A host:port to submit image pull metrics to.")
+	fetchCmd.Flags().StringVar(&imageCredentialProviderConfig, "image-credential-provider-config", "", "Path to credential provider plugin config file.")
+	fetchCmd.Flags().StringVar(&imageCredentialProviderBinDir, "image-credential-provider-bin-dir", "", "Path to credential provider plugin binary directory.")
 
 	fetchCmd.Flags().DurationVar(&imageListTimeout, "image-list-timeout", imageListTimeout, "Timeout for image list calls (for debugging).")
 	fetchCmd.Flags().DurationVar(&initialPullAttemptTimeout, "initial-pull-attempt-timeout", initialPullAttemptTimeout, "Timeout for initial image pull call. Each subsequent attempt doubles it until max.")
