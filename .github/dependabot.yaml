@@ -6,6 +6,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'tuesday'
+      time: "23:17"
     labels:
     - "dependencies"
     - "auto-merge"
@@ -14,6 +15,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'tuesday'
+      time: "23:17"
     open-pull-requests-limit: 5
     groups:
       k8s.io:
@@ -27,6 +29,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'tuesday'
+      time: "23:17"
     open-pull-requests-limit: 3
     labels:
     - "dependencies"
@@ -36,6 +39,7 @@ updates:
     schedule:
       interval: 'weekly'
       day: 'tuesday'
+      time: "23:17"
     open-pull-requests-limit: 3
     labels:
     - "dependencies"
