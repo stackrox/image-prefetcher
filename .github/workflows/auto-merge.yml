@@ -2,7 +2,7 @@ name: auto-merge
 
 on:
   schedule:
-    - cron: '13 */6 * * *'  # Every 6 hours
+    - cron: '13 2/6 * * *'  # Every 6 hours starting 2 am
   workflow_dispatch:
 
 permissions:
