@@ -53,8 +53,11 @@ It also optionally collects each pull attempt's duration and result.
      Plugin credentials fetched dynamically and tried for the images configured in the `CredentialProviderConfig` before pull secrets.
      Currently only supports mode `GKE`, which uses `/etc/srv/kubernetes/cri_auth_config.yaml` and `/home/kubernetes/bin` mounted from the host.
 
-   Example:
+     Note that in this case, the tool uses distro-based prefetcher images, to provide the dynamic
+     linker and shared libraries that a credential plugin binary might need.
 
+   Example:
+  
    ```
    go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 --namespace prefetch-images my-images > manifest.yaml
    ```
