@@ -14,13 +14,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	credentialproviderv1 "k8s.io/kubelet/pkg/apis/credentialprovider/v1"
 	"k8s.io/kubelet/pkg/apis/credentialprovider/install"
+	credentialproviderv1 "k8s.io/kubelet/pkg/apis/credentialprovider/v1"
 	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
 	kubeletconfigv1 "k8s.io/kubernetes/pkg/kubelet/apis/config/v1"
 )
 
-const supportedAPIVersion = "kubelet.k8s.io/v1"
+const supportedAPIVersion = "credentialprovider.kubelet.k8s.io/v1"
 
 var (
 	scheme = runtime.NewScheme()
