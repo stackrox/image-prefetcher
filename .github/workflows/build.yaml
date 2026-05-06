@@ -67,6 +67,8 @@ jobs:
           username: ${{ secrets.QUAY_STACKROX_IO_RW_USERNAME }}
           password: ${{ secrets.QUAY_STACKROX_IO_RW_PASSWORD }}
 
+      # Distro-less "FROM scratch" images.
+
       - name: Prepare manifest OCI metadata for amd64
         id: meta-amd64
         uses: docker/metadata-action@v6
@@ -204,6 +206,149 @@ jobs:
             docker manifest push "${tag}"
           done
 
+      # Distro-full "FROM debian:stable-slim" images.
+
+      - name: Prepare manifest OCI metadata for amd64 - distro
+        id: meta-amd64-distro
+        uses: docker/metadata-action@v6
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          flavor: suffix=-distro-amd64,onlatest=true
+          tags: |
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
+
+      - name: Build and push OCI amd64 image - distro
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-amd64-distro.outputs.tags }}
+          labels: ${{ steps.meta-amd64-distro.outputs.labels }}
+          platforms: linux/amd64
+          build-args: |
+            ARCH=amd64
+            BASE=debian:stable-slim
+
+      - name: Prepare manifest OCI metadata for arm64 - distro
+        id: meta-arm64-distro
+        uses: docker/metadata-action@v6
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          flavor: suffix=-distro-arm64,onlatest=true
+          tags: |
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
+
+      - name: Build and push OCI arm64 image - distro
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-arm64-distro.outputs.tags }}
+          labels: ${{ steps.meta-arm64-distro.outputs.labels }}
+          platforms: linux/arm64
+          build-args: |
+            ARCH=arm64
+            BASE=debian:stable-slim
+
+      - name: Prepare manifest OCI metadata for ppc64le - distro
+        id: meta-ppc64le-distro
+        uses: docker/metadata-action@v6
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          flavor: suffix=-distro-ppc64le,onlatest=true
+          tags: |
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
+
+      - name: Build and push OCI ppc64le image - distro
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-ppc64le-distro.outputs.tags }}
+          labels: ${{ steps.meta-ppc64le-distro.outputs.labels }}
+          platforms: linux/ppc64le
+          build-args: |
+            ARCH=ppc64le
+            BASE=debian:stable-slim
+
+      - name: Prepare manifest OCI metadata for s390x - distro
+        id: meta-s390x-distro
+        uses: docker/metadata-action@v6
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          flavor: suffix=-distro-s390x,onlatest=true
+          tags: |
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
+
+      - name: Build and push OCI s390x image - distro
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-s390x-distro.outputs.tags }}
+          labels: ${{ steps.meta-s390x-distro.outputs.labels }}
+          platforms: linux/s390x
+          build-args: |
+            ARCH=s390x
+            BASE=debian:stable-slim
+
+      - name: Prepare manifest OCI metadata - distro
+        id: meta-distro
+        uses: docker/metadata-action@v6
+        with:
+          images: "quay.io/stackrox-io/image-prefetcher"
+          # generate Docker tags based on the following events/attributes
+          # See https://github.com/docker/metadata-action
+          flavor: suffix=-distro
+          tags: |
+            type=ref,event=branch,prefix=branch-
+            type=semver,pattern=v{{major}}.{{minor}}.{{patch}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=sha
+
+      - name: Create and push multi-arch manifest - distro
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_TAGS: ${{ steps.meta-distro.outputs.tags }}
+        run: |
+          for tag in ${IMAGE_TAGS};
+          do
+            docker manifest create "${tag}" \
+              --amend "${tag}-amd64" \
+              --amend "${tag}-arm64" \
+              --amend "${tag}-ppc64le" \
+              --amend "${tag}-s390x"
+            docker manifest push "${tag}"
+          done
 
   e2e:
     if: github.event_name != 'pull_request'
