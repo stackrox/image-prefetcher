@@ -119,7 +119,7 @@ func (kr *PluginKeyring) LookupWithCtx(ctx context.Context, image string) ([]Aut
 		return nil, false
 	}
 
-	var allCreds []AuthConfig
+	dk := &BasicDockerKeyring{}
 	for _, provider := range kr.providers {
 		if !kr.matchesImage(provider.matchImages, image) {
 			continue
@@ -131,15 +131,10 @@ func (kr *PluginKeyring) LookupWithCtx(ctx context.Context, image string) ([]Aut
 			kr.logger.Warn("credential provider plugin failed", "plugin", provider.name, "image", image, "error", err)
 			continue
 		}
-
-		allCreds = append(allCreds, creds...)
+		dk.Add(creds)
 	}
 
-	if len(allCreds) > 0 {
-		return allCreds, true
-	}
-
-	return nil, false
+	return dk.Lookup(image)
 }
 
 // matchesImage checks if any of the match patterns match the given image.
@@ -154,7 +149,7 @@ func (kr *PluginKeyring) matchesImage(patterns []string, image string) bool {
 }
 
 // execPlugin executes the credential provider plugin and parses the response.
-func (kr *PluginKeyring) execPlugin(ctx context.Context, provider pluginProviderWrapper, image string) ([]AuthConfig, error) {
+func (kr *PluginKeyring) execPlugin(ctx context.Context, provider pluginProviderWrapper, image string) (DockerConfig, error) {
 	// Prepare the request
 	request := credentialproviderv1.CredentialProviderRequest{
 		Image: image,
@@ -188,16 +183,13 @@ func (kr *PluginKeyring) execPlugin(ctx context.Context, provider pluginProvider
 		return nil, fmt.Errorf("apiVersion from credential plugin response did not match expected apiVersion:%s, actual apiVersion:%s", supportedResponseAPIVersion, response.APIVersion)
 	}
 
-	// Convert to AuthConfig
-	var creds []AuthConfig
-	for registry, authConfig := range response.Auth {
-		creds = append(creds, AuthConfig{
-			Username:      authConfig.Username,
-			Password:      authConfig.Password,
-			ServerAddress: registry,
-		})
+	kr.logger.Debug("received credentials from plugin", "plugin", provider.name, "count", len(response.Auth))
+	dockerConfig := make(DockerConfig, len(response.Auth))
+	for matchImage, authConfig := range response.Auth {
+		dockerConfig[matchImage] = DockerConfigEntry{
+			Username: authConfig.Username,
+			Password: authConfig.Password,
+		}
 	}
-
-	kr.logger.Debug("received credentials from plugin", "plugin", provider.name, "count", len(creds))
-	return creds, nil
+	return dockerConfig, nil
 }
