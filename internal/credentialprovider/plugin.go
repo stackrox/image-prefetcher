@@ -17,7 +17,7 @@ import (
 
 const (
 	supportedResponseAPIVersion = "credentialprovider.kubelet.k8s.io/v1"
-	supportedConfigApiVersion   = "kubelet.config.k8s.io/v1"
+	supportedConfigAPIVersion   = "kubelet.config.k8s.io/v1"
 )
 
 // Minimal mirrors of k8s.io/kubelet/config/v1.CredentialProviderConfig to avoid depending on k8s.io/kubernetes.
@@ -101,8 +101,8 @@ func readCredentialProviderConfig(configPath string) (*credentialProviderConfig,
 		return nil, fmt.Errorf("unexpected kind %q, expected CredentialProviderConfig", config.Kind)
 	}
 
-	if config.APIVersion != supportedConfigApiVersion {
-		return nil, fmt.Errorf("unexpected API version %q, expected %q", config.APIVersion, supportedConfigApiVersion)
+	if config.APIVersion != supportedConfigAPIVersion {
+		return nil, fmt.Errorf("unexpected API version %q, expected %q", config.APIVersion, supportedConfigAPIVersion)
 	}
 
 	return &config, nil
