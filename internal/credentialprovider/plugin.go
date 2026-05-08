@@ -11,26 +11,27 @@ import (
 	"path/filepath"
 	"time"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	credentialproviderv1 "k8s.io/kubelet/pkg/apis/credentialprovider/v1"
-	"k8s.io/kubelet/pkg/apis/credentialprovider/install"
-	kubeletconfig "k8s.io/kubernetes/pkg/kubelet/apis/config"
-	kubeletconfigv1 "k8s.io/kubernetes/pkg/kubelet/apis/config/v1"
+	"sigs.k8s.io/yaml"
 )
 
-const supportedAPIVersion = "kubelet.k8s.io/v1"
-
-var (
-	scheme = runtime.NewScheme()
-	codecs = serializer.NewCodecFactory(scheme, serializer.EnableStrict)
+const (
+	supportedResponseAPIVersion = "credentialprovider.kubelet.k8s.io/v1"
+	supportedConfigApiVersion   = "kubelet.config.k8s.io/v1"
 )
 
-func init() {
-	install.Install(scheme)
-	utilruntime.Must(kubeletconfig.AddToScheme(scheme))
-	utilruntime.Must(kubeletconfigv1.AddToScheme(scheme))
+// Minimal mirrors of k8s.io/kubelet/config/v1.CredentialProviderConfig to avoid depending on k8s.io/kubernetes.
+type credentialProviderConfig struct {
+	APIVersion string               `json:"apiVersion"`
+	Kind       string               `json:"kind"`
+	Providers  []credentialProvider `json:"providers"`
+}
+
+type credentialProvider struct {
+	Name        string   `json:"name"`
+	MatchImages []string `json:"matchImages"`
+	APIVersion  string   `json:"apiVersion"`
+	Args        []string `json:"args,omitempty"`
 }
 
 // PluginKeyring wraps the credential provider plugin functionality.
@@ -85,31 +86,26 @@ func NewPluginKeyring(logger *slog.Logger, configPath, binDir string) (*PluginKe
 
 // readCredentialProviderConfig reads and decodes the credential provider config file.
 // Supports both YAML and JSON formats.
-func readCredentialProviderConfig(configPath string) (*kubeletconfig.CredentialProviderConfig, error) {
+func readCredentialProviderConfig(configPath string) (*credentialProviderConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	obj, gvk, err := codecs.UniversalDecoder().Decode(data, nil, nil)
-	if err != nil {
+	var config credentialProviderConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
 
-	if gvk.Kind != "CredentialProviderConfig" {
-		return nil, fmt.Errorf("unexpected kind %q, expected CredentialProviderConfig", gvk.Kind)
+	if config.Kind != "CredentialProviderConfig" {
+		return nil, fmt.Errorf("unexpected kind %q, expected CredentialProviderConfig", config.Kind)
 	}
 
-	if gvk.Group != kubeletconfig.GroupName {
-		return nil, fmt.Errorf("unexpected group %q, expected %q", gvk.Group, kubeletconfig.GroupName)
+	if config.APIVersion != supportedConfigApiVersion {
+		return nil, fmt.Errorf("unexpected API version %q, expected %q", config.APIVersion, supportedConfigApiVersion)
 	}
 
-	config, ok := obj.(*kubeletconfig.CredentialProviderConfig)
-	if !ok {
-		return nil, fmt.Errorf("unable to convert %T to *CredentialProviderConfig", obj)
-	}
-
-	return config, nil
+	return &config, nil
 }
 
 // Lookup is like LookupWithCtx(context.Background(), ...).
@@ -188,8 +184,8 @@ func (kr *PluginKeyring) execPlugin(ctx context.Context, provider pluginProvider
 		return nil, fmt.Errorf("failed to parse plugin response: %w", err)
 	}
 
-	if response.APIVersion != supportedAPIVersion {
-		return nil, fmt.Errorf("apiVersion from credential plugin response did not match expected apiVersion:%s, actual apiVersion:%s", supportedAPIVersion, response.APIVersion)
+	if response.APIVersion != supportedResponseAPIVersion {
+		return nil, fmt.Errorf("apiVersion from credential plugin response did not match expected apiVersion:%s, actual apiVersion:%s", supportedResponseAPIVersion, response.APIVersion)
 	}
 
 	// Convert to AuthConfig
