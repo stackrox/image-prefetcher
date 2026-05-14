@@ -12,15 +12,15 @@ import (
 )
 
 type settings struct {
-	Name                                  string
-	Namespace                             string
-	Image                                 string
-	Version                               string
-	Secret                                string
-	IsCRIO                                bool
-	NeedsPrivileged                       bool
-	CollectMetrics                        bool
-	UseKubeletImageCredentialIntegration  string
+	Name                                 string
+	Namespace                            string
+	Image                                string
+	Version                              string
+	Secret                               string
+	IsCRIO                               bool
+	NeedsPrivileged                      bool
+	CollectMetrics                       bool
+	UseKubeletImageCredentialIntegration string
 }
 
 const (
