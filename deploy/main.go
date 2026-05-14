@@ -12,15 +12,15 @@ import (
 )
 
 type settings struct {
-	Name                                  string
-	Namespace                             string
-	Image                                 string
-	Version                               string
-	Secret                                string
-	IsCRIO                                bool
-	NeedsPrivileged                       bool
-	CollectMetrics                        bool
-	UseKubeletImageCredentialIntegration  string
+	Name                                 string
+	Namespace                            string
+	Image                                string
+	Version                              string
+	Secret                               string
+	IsCRIO                               bool
+	NeedsPrivileged                      bool
+	CollectMetrics                       bool
+	UseKubeletImageCredentialIntegration string
 }
 
 const (
@@ -56,18 +56,22 @@ func init() {
 // processVersion processes the version string and returns the appropriate format.
 // For versions with dashes containing SHA (like v0.4.2-0.20251126115717-559dd9fd402f),
 // extracts short SHA and returns "sha-<shortSHA>" as long as the sha is at least 7 chars long.
-// Otherwise, returns as is
-func processVersion(version string) string {
+// Otherwise, returns as is.
+// If useDistroImage is true, appends "-distro" to the result.
+func processVersion(version string, useDistroImage bool) string {
+	result := version
 	// Pattern: vX.Y.Z-0.timestamp-SHA produced by `go mod tidy`.
 	dashRegex := regexp.MustCompile(`^v\d+\.\d+\.\d+-\d+\.\d+-([a-f0-9]+)$`)
 	matches := dashRegex.FindStringSubmatch(version)
-	if len(matches) != 2 {
-		return version
+	if len(matches) == 2 {
+		if fullSHA := matches[1]; len(fullSHA) >= 7 {
+			result = fmt.Sprintf("sha-%s", fullSHA[:7])
+		}
 	}
-	if fullSHA := matches[1]; len(fullSHA) >= 7 {
-		return fmt.Sprintf("sha-%s", fullSHA[:7])
+	if useDistroImage {
+		result += "-distro"
 	}
-	return version
+	return result
 }
 
 func main() {
@@ -84,7 +88,7 @@ func main() {
 		Name:                                 name,
 		Namespace:                            namespace,
 		Image:                                imageRepo,
-		Version:                              processVersion(version),
+		Version:                              processVersion(version, useKubeletImageCredentialIntegration != ""),
 		Secret:                               secret,
 		IsCRIO:                               isOcp,
 		NeedsPrivileged:                      isOcp,
