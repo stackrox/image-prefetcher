@@ -51,10 +51,11 @@ It also optionally collects each pull attempt's duration and result.
    - `--collect-metrics`: if the image pull metrics should be collected.
    - `--use-kubelet-image-credential-integration=MODE`: enables kubelet [credential provider](https://kubernetes.io/blog/2022/12/22/kubelet-credential-providers/) plugin integration.
      Plugin credentials fetched dynamically and tried for the images configured in the `CredentialProviderConfig` before pull secrets.
-     Currently only supports mode `GKE`, which uses `/etc/srv/kubernetes/cri_auth_config.yaml` and `/home/kubernetes/bin` mounted from the host.
-
      Note that in this case, the tool uses distro-based prefetcher images, to provide the dynamic
      linker and shared libraries that a credential plugin binary might need.
+     Currently supported modes are:
+       - `GKE`, which uses `/etc/srv/kubernetes/cri_auth_config.yaml` and `/home/kubernetes/bin` mounted from the host.
+       - `OCP`, which uses `/etc/kubernetes/credential-providers/` and `/usr/libexec/kubelet-image-credential-provider-plugins` mounted from the host.
 
    Example:
   

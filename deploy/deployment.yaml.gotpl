@@ -167,6 +167,10 @@ spec:
         - "--image-credential-provider-config=/tmp/credential-provider/cri_auth_config.yaml"
         - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
         {{ end }}
+        {{ if eq .UseKubeletImageCredentialIntegration "OCP" }}
+        - "--image-credential-provider-config=/tmp/credential-provider/generic-credential-provider.yaml"
+        - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
+        {{ end }}
         env:
         - name: NODE_NAME
           valueFrom:
@@ -193,7 +197,7 @@ spec:
           name: pull-secret
           readOnly: true
         {{ end }}
-        {{ if eq .UseKubeletImageCredentialIntegration "GKE" }}
+        {{ if or (eq .UseKubeletImageCredentialIntegration "GKE") (eq .UseKubeletImageCredentialIntegration "OCP")}}
         - mountPath: /tmp/credential-provider
           name: credential-provider-config
           readOnly: true
@@ -245,5 +249,15 @@ spec:
       - name: credential-provider-bin
         hostPath:
           path: /home/kubernetes/bin
+          type: Directory
+      {{ end }}
+      {{ if eq .UseKubeletImageCredentialIntegration "OCP" }}
+      - name: credential-provider-config
+        hostPath:
+          path: /etc/kubernetes/credential-providers
+          type: Directory
+      - name: credential-provider-bin
+        hostPath:
+          path: /usr/libexec/kubelet-image-credential-provider-plugins
           type: Directory
       {{ end }}
