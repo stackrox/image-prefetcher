@@ -50,7 +50,7 @@ func init() {
 	flag.TextVar(&k8sFlavor, "k8s-flavor", flavor(vanillaFlavor), fmt.Sprintf("Kubernetes flavor. Accepted values: %s", strings.Join(allFlavors, ",")))
 	flag.StringVar(&secret, "secret", "", "Kubernetes image pull Secret to use when pulling.")
 	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
-	flag.StringVar(&useKubeletImageCredentialIntegration, "use-kubelet-image-credential-integration", "", "Enable kubelet image credential provider plugin integration. Accepted values: GKE, OCP.")
+	flag.StringVar(&useKubeletImageCredentialIntegration, "use-kubelet-image-credential-integration", "", "Enable kubelet image credential provider plugin integration. Accepted values: GKE, OCP-GCR, OCP-ECR, OCP-ACR.")
 }
 
 // processVersion processes the version string and returns the appropriate format.

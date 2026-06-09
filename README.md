@@ -55,7 +55,8 @@ It also optionally collects each pull attempt's duration and result.
      linker and shared libraries that a credential plugin binary might need.
      Currently supported modes are:
        - `GKE`, which uses `/etc/srv/kubernetes/cri_auth_config.yaml` and `/home/kubernetes/bin` mounted from the host.
-       - `OCP`, which uses `/etc/kubernetes/credential-providers/` and `/usr/libexec/kubelet-image-credential-provider-plugins` mounted from the host.
+       - `OCP-GCR`, `OCP-ECR`, `OCP-ACR`, for OCP on GCP, AWS, and Azure respectively.
+         These use the corresponding credential provider config from `/etc/kubernetes/credential-providers/` and binaries from `/usr/libexec/kubelet-image-credential-provider-plugins` mounted from the host.
 
    Example:
   
