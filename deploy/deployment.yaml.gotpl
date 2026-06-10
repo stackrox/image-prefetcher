@@ -129,6 +129,7 @@ metadata:
     ignore-check.kube-linter.io/privilege-escalation-container: "Needs access to CRI socket."
     ignore-check.kube-linter.io/privileged-container: "Needs access to CRI socket."
     ignore-check.kube-linter.io/run-as-non-root: "Needs access to CRI socket."
+    ignore-check.kube-linter.io/host-network: "Credential provider plugins may need host network access."
 spec:
   selector:
     matchLabels:
@@ -142,7 +143,9 @@ spec:
         openshift.io/required-scc: privileged
       {{ end }}
     spec:
+      {{ if .UseKubeletImageCredentialIntegration }}
       hostNetwork: true
+      {{ end }}
       serviceAccountName: {{ .Name }}
       tolerations:
       # Broad toleration to match stackrox collector.
