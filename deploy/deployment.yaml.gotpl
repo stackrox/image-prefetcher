@@ -142,6 +142,7 @@ spec:
         openshift.io/required-scc: privileged
       {{ end }}
     spec:
+      hostNetwork: true
       serviceAccountName: {{ .Name }}
       tolerations:
       # Broad toleration to match stackrox collector.
