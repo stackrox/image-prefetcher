@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/kubelet/pkg/apis/credentialprovider/install"
 	credentialproviderv1 "k8s.io/kubelet/pkg/apis/credentialprovider/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -46,6 +49,15 @@ type pluginProviderWrapper struct {
 	apiVersion  string
 	matchImages []string
 	args        []string
+}
+
+var (
+	scheme = runtime.NewScheme()
+	codecs = serializer.NewCodecFactory(scheme)
+)
+
+func init() {
+	install.Install(scheme)
 }
 
 // NewPluginKeyring creates a new keyring that uses credential provider plugins.
@@ -148,13 +160,23 @@ func (kr *PluginKeyring) matchesImage(patterns []string, image string) bool {
 	return false
 }
 
-// execPlugin executes the credential provider plugin and parses the response.
+// marshalRequest serializes the request in a format which contains the required apiVersion and kind fields.
+func marshalRequest(request *credentialproviderv1.CredentialProviderRequest) ([]byte, error) {
+	jsonMediaType := "application/json"
+	info, ok := runtime.SerializerInfoForMediaType(codecs.SupportedMediaTypes(), jsonMediaType)
+	if !ok {
+		return nil, fmt.Errorf("unsupported media type %q", jsonMediaType)
+	}
+	return runtime.Encode(codecs.EncoderForVersion(info.Serializer, credentialproviderv1.SchemeGroupVersion), request)
+}
+
+// execPlugin executes the credential provider plugin and parses the responseFile.
 func (kr *PluginKeyring) execPlugin(ctx context.Context, provider pluginProviderWrapper, image string) (DockerConfig, error) {
 	// Prepare the request
 	request := credentialproviderv1.CredentialProviderRequest{
 		Image: image,
 	}
-	requestJSON, err := json.Marshal(request)
+	requestJSON, err := marshalRequest(&request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}

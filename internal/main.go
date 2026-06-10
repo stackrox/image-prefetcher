@@ -78,7 +78,7 @@ func Run(logger *slog.Logger, criSocketPath string, dockerConfigJSONPath string,
 				},
 				Auth: auth,
 			}
-			go pullImageWithRetries(ctx, logger.With("image", imageName, "authNum", i, "authServer", auth.ServerAddress, "authUsername", auth.Username), &wg, criClient, metricsSink.Chan(), imageName, request, timing, &results)
+			go pullImageWithRetries(ctx, pullLogger(logger, imageName, i, auth), &wg, criClient, metricsSink.Chan(), imageName, request, timing, &results)
 		}
 	}
 	wg.Wait()
@@ -170,6 +170,13 @@ func getAuthsForImage(ctx context.Context, logger *slog.Logger, pluginKr *creden
 	}
 
 	return auths
+}
+
+func pullLogger(logger *slog.Logger, imageName string, authNum int, auth *criV1.AuthConfig) *slog.Logger {
+	if auth != nil {
+		return logger.With("image", imageName, "authNum", authNum, "authServer", auth.ServerAddress, "authUsername", auth.Username)
+	}
+	return logger.With("image", imageName, "authNum", authNum)
 }
 
 func pullImageWithRetries(ctx context.Context, logger *slog.Logger, wg *sync.WaitGroup, client criV1.ImageServiceClient, metricsSink chan<- *metricsProto.Result, name string, request *criV1.PullImageRequest, timing TimingConfig, results *sync.Map) {
