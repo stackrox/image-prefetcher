@@ -129,6 +129,7 @@ metadata:
     ignore-check.kube-linter.io/privilege-escalation-container: "Needs access to CRI socket."
     ignore-check.kube-linter.io/privileged-container: "Needs access to CRI socket."
     ignore-check.kube-linter.io/run-as-non-root: "Needs access to CRI socket."
+    ignore-check.kube-linter.io/host-network: "Credential provider plugins may need host network access."
 spec:
   selector:
     matchLabels:
@@ -142,6 +143,9 @@ spec:
         openshift.io/required-scc: privileged
       {{ end }}
     spec:
+      {{ if .UseKubeletImageCredentialIntegration }}
+      hostNetwork: true
+      {{ end }}
       serviceAccountName: {{ .Name }}
       tolerations:
       # Broad toleration to match stackrox collector.
@@ -165,6 +169,18 @@ spec:
         {{ end }}
         {{ if eq .UseKubeletImageCredentialIntegration "GKE" }}
         - "--image-credential-provider-config=/tmp/credential-provider/cri_auth_config.yaml"
+        - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
+        {{ end }}
+        {{ if eq .UseKubeletImageCredentialIntegration "OCP-GCR" }}
+        - "--image-credential-provider-config=/tmp/credential-provider/gcr-credential-provider.yaml"
+        - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
+        {{ end }}
+        {{ if eq .UseKubeletImageCredentialIntegration "OCP-ECR" }}
+        - "--image-credential-provider-config=/tmp/credential-provider/ecr-credential-provider.yaml"
+        - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
+        {{ end }}
+        {{ if eq .UseKubeletImageCredentialIntegration "OCP-ACR" }}
+        - "--image-credential-provider-config=/tmp/credential-provider/acr-credential-provider.yaml"
         - "--image-credential-provider-bin-dir=/tmp/credential-provider-bin"
         {{ end }}
         env:
@@ -193,7 +209,7 @@ spec:
           name: pull-secret
           readOnly: true
         {{ end }}
-        {{ if eq .UseKubeletImageCredentialIntegration "GKE" }}
+        {{ if or (eq .UseKubeletImageCredentialIntegration "GKE") (eq .UseKubeletImageCredentialIntegration "OCP-GCR") (eq .UseKubeletImageCredentialIntegration "OCP-ECR") (eq .UseKubeletImageCredentialIntegration "OCP-ACR")}}
         - mountPath: /tmp/credential-provider
           name: credential-provider-config
           readOnly: true
@@ -245,5 +261,15 @@ spec:
       - name: credential-provider-bin
         hostPath:
           path: /home/kubernetes/bin
+          type: Directory
+      {{ end }}
+      {{ if or (eq .UseKubeletImageCredentialIntegration "OCP-GCR") (eq .UseKubeletImageCredentialIntegration "OCP-ECR") (eq .UseKubeletImageCredentialIntegration "OCP-ACR") }}
+      - name: credential-provider-config
+        hostPath:
+          path: /etc/kubernetes/credential-providers
+          type: Directory
+      - name: credential-provider-bin
+        hostPath:
+          path: /usr/libexec/kubelet-image-credential-provider-plugins
           type: Directory
       {{ end }}
