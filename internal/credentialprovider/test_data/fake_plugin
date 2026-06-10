@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+cat > "$1"
+cat "$2"
+exit "$3"
