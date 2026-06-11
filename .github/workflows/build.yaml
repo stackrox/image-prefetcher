@@ -206,7 +206,8 @@ jobs:
             docker manifest push "${tag}"
           done
 
-      # Distro-full "FROM debian:stable-slim" images.
+      # Distro-full "UBI-based" images.
+      # These are 10 MiB larger than debian -slim images but already contain CA certificates.
 
       - name: Prepare manifest OCI metadata for amd64 - distro
         id: meta-amd64-distro
@@ -234,7 +235,7 @@ jobs:
           platforms: linux/amd64
           build-args: |
             ARCH=amd64
-            BASE=debian:stable-slim
+            BASE=registry.access.redhat.com/ubi9/ubi-minimal:latest
 
       - name: Prepare manifest OCI metadata for arm64 - distro
         id: meta-arm64-distro
@@ -262,7 +263,7 @@ jobs:
           platforms: linux/arm64
           build-args: |
             ARCH=arm64
-            BASE=debian:stable-slim
+            BASE=registry.access.redhat.com/ubi9/ubi-minimal:latest
 
       - name: Prepare manifest OCI metadata for ppc64le - distro
         id: meta-ppc64le-distro
@@ -290,7 +291,7 @@ jobs:
           platforms: linux/ppc64le
           build-args: |
             ARCH=ppc64le
-            BASE=debian:stable-slim
+            BASE=registry.access.redhat.com/ubi9/ubi-minimal:latest
 
       - name: Prepare manifest OCI metadata for s390x - distro
         id: meta-s390x-distro
@@ -318,7 +319,7 @@ jobs:
           platforms: linux/s390x
           build-args: |
             ARCH=s390x
-            BASE=debian:stable-slim
+            BASE=registry.access.redhat.com/ubi9/ubi-minimal:latest
 
       - name: Prepare manifest OCI metadata - distro
         id: meta-distro
