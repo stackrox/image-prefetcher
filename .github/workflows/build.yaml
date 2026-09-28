@@ -427,23 +427,8 @@ jobs:
         run: |
           set -e
 
-          info() { echo "$@"; }
-          die() { info "$@"; exit 1; }
-
-          attempt=0
-          service="service/${NAME}-metrics"
-          while [[ -z $(kubectl -n "${NS}" get "${service}" -o jsonpath="{.status.loadBalancer.ingress}" 2>/dev/null) ]]; do
-            if [ "$attempt" -lt "10" ]; then
-              info "Waiting for ${service} to obtain endpoint ..."
-              attempt=$((attempt+1))
-              sleep 10
-            else
-              die "ERROR: Timeout waiting for ${service} to obtain endpoint!"
-            fi
-          done
-
-          endpoint="$(kubectl -n "${NS}" get "${service}" -o json | jq -r '.status.loadBalancer.ingress[] | .ip')"
-          curl --silent --show-error --fail --retry 3 --retry-connrefused "http://${endpoint}:8080/metrics" > metrics.json
+          kubectl -n "$NS" rollout status daemonset "${NAME}" --timeout 5m
+          ./deploy/deploy --fetch-metrics --namespace="$NS" "${NAME}" > metrics.json
 
       - name: Dump metrics
         run: jq . metrics.json

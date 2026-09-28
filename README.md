@@ -86,22 +86,17 @@ It also optionally collects each pull attempt's duration and result.
    kubectl logs -n prefetch-images daemonset/my-images -c prefetch
    ```
 
-6. If metrics collection was requested, wait for the endpoint to appear, and fetch them:
+6. If metrics collection was requested, fetch the metrics. The metrics Service is
+   `ClusterIP`, so the deploy tool retrieves them via `kubectl port-forward`:
    ```
-   attempt=0
-   service="service/my-images-metrics"
-   while [[ -z $(kubectl -n "${ns}" get "${service}" -o jsonpath="{.status.loadBalancer.ingress}" 2>/dev/null) ]]; do
-       if [ "$attempt" -lt "60" ]; then
-           echo "Waiting for ${service} to obtain endpoint ..."
-           ((attempt++))
-           sleep 10
-       else
-           echo "Timeout waiting for ${service} to obtain endpoint!"
-           exit 1
-       fi
-   done
-   endpoint="$(kubectl -n "${ns}" get "${service}" -o json | jq -r '.status.loadBalancer.ingress[] | .ip')"
-   curl "http://${endpoint}:8080/metrics" | jq
+   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --fetch-metrics --namespace="${ns}" my-images | jq
+   ```
+
+   Alternatively, port-forward manually and curl the endpoint:
+   ```
+   kubectl -n "${ns}" port-forward svc/my-images-metrics :8080
+   # note the printed local port, then in another shell:
+   curl "http://127.0.0.1:${local_port}/metrics" | jq
    ```
 
    See the [Result](internal/metrics/metrics.proto) message definition for a list of fields.

@@ -117,7 +117,7 @@ spec:
     protocol: TCP
   selector:
     app: {{ .Name }}-metrics
-  type: LoadBalancer
+  type: ClusterIP
 ---
 {{ end }}
 apiVersion: apps/v1

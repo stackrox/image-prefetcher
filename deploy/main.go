@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+	"time"
 )
 
 type settings struct {
@@ -44,6 +45,16 @@ var (
 	useKubeletImageCredentialIntegration string
 )
 
+// Flags for --fetch-metrics mode.
+var (
+	fetchMetricsMode       bool
+	fetchMetricsPort       int
+	fetchKubectl           string
+	fetchContext           string
+	fetchOverallTimeout    time.Duration
+	fetchOnePortFwdTimeout time.Duration
+)
+
 func init() {
 	flag.StringVar(&version, "version", "v0.3.0", "Version of image prefetcher OCI image.")
 	flag.StringVar(&namespace, "namespace", "default", "Namespace where the image prefetcher will be deployed.")
@@ -51,6 +62,13 @@ func init() {
 	flag.StringVar(&secret, "secret", "", "Kubernetes image pull Secret to use when pulling.")
 	flag.BoolVar(&collectMetrics, "collect-metrics", false, "Whether to collect and expose image pull metrics.")
 	flag.StringVar(&useKubeletImageCredentialIntegration, "use-kubelet-image-credential-integration", "", "Enable kubelet image credential provider plugin integration. Accepted values: GKE")
+
+	flag.BoolVar(&fetchMetricsMode, "fetch-metrics", false, "Instead of rendering a manifest, fetch metrics from the <name>-metrics Service via kubectl port-forward and print them to stdout.")
+	flag.IntVar(&fetchMetricsPort, "metrics-port", 8080, "Service port exposing the HTTP /metrics endpoint (--fetch-metrics mode).")
+	flag.StringVar(&fetchKubectl, "kubectl", "kubectl", "Path to the kubectl binary (--fetch-metrics mode).")
+	flag.StringVar(&fetchContext, "context", "", "kubectl context to use, defaults to the current context / $KUBECONFIG (--fetch-metrics mode).")
+	flag.DurationVar(&fetchOverallTimeout, "timeout", 5*time.Minute, "Overall timeout, including waiting for the aggregator pod to become ready (--fetch-metrics mode).")
+	flag.DurationVar(&fetchOnePortFwdTimeout, "one-port-forward-timeout", 60*time.Second, "How long to wait for a single port-forward attempt to become ready and fetch (--fetch-metrics mode).")
 }
 
 // processVersion processes the version string and returns the appropriate format.
@@ -82,6 +100,22 @@ func main() {
 		os.Exit(1)
 	}
 	name := flag.Arg(0)
+
+	if fetchMetricsMode {
+		if err := runFetchMetrics(fetchOptions{
+			name:              name,
+			namespace:         namespace,
+			remotePort:        fetchMetricsPort,
+			kubectl:           fetchKubectl,
+			kubeContext:       fetchContext,
+			overallTimeout:    fetchOverallTimeout,
+			onePortFwdTimeout: fetchOnePortFwdTimeout,
+		}); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
+
 	isOcp := k8sFlavor == ocpFlavor
 
 	s := settings{
