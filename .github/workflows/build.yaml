@@ -22,11 +22,20 @@ jobs:
       - name: Verify
         run: go mod verify
 
+      - name: Verify deploy tool
+        run: go -C deploy mod verify
+
       - name: Build
         run: go build ./...
 
+      - name: Build deploy tool
+        run: go -C deploy build ./...
+
       - name: Test
         run: go test ./...
+
+      - name: Test deploy tool
+        run: go -C deploy test ./...
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9

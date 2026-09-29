@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -77,7 +78,7 @@ func fetchViaPortForward(ctx context.Context, opts fetchOptions) ([]byte, error)
 			return body, nil
 		}
 		lastErr = err
-		log.Printf("attempt %d to retrieve metrics failed: %v; retrying", attempt, err)
+		log.Printf("attempt %d to retrieve metrics failed: %v; retrying", attempt, strings.TrimSpace(err.Error()))
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf("giving up establishing metrics port-forward after %d attempt(s): %w (last error: %v)", attempt, ctx.Err(), lastErr)

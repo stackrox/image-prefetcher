@@ -67,6 +67,16 @@ func testConfig(kubectl string) portForwardConfig {
 	}
 }
 
+func testOptions(kubectl string) fetchOptions {
+	return fetchOptions{
+		kubectl:           kubectl,
+		namespace:         "test-ns",
+		name:              "test",
+		remotePort:        8080,
+		onePortFwdTimeout: 400 * time.Millisecond,
+	}
+}
+
 // When kubectl announces the forwarded port, startPortForward parses it and the
 // returned stop() promptly tears the (otherwise long-lived) process down.
 func TestStartPortForwardParsesLocalPortAndStops(t *testing.T) {
@@ -75,7 +85,7 @@ func TestStartPortForwardParsesLocalPortAndStops(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	port, stop, err := startPortForward(ctx, testConfig(fake))
+	port, err := startPortForward(ctx, testConfig(fake))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -84,11 +94,11 @@ func TestStartPortForwardParsesLocalPortAndStops(t *testing.T) {
 	}
 
 	done := make(chan struct{})
-	go func() { stop(); close(done) }()
+	go func() { cancel(); close(done) }()
 	select {
 	case <-done:
 	case <-time.After(8 * time.Second):
-		t.Fatal("stop() did not return promptly; kubectl was likely left running")
+		t.Fatal("cancel() did not return promptly; kubectl was likely left running")
 	}
 }
 
@@ -100,7 +110,7 @@ func TestStartPortForwardKubectlExitsEarly(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, _, err := startPortForward(ctx, testConfig(fake))
+	_, err := startPortForward(ctx, testConfig(fake))
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
@@ -121,7 +131,7 @@ func TestStartPortForwardTimesOutWhenNeverReady(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, _, err := startPortForward(ctx, testConfig(fake))
+	_, err := startPortForward(ctx, testConfig(fake))
 	if err == nil {
 		t.Fatal("expected a timeout error, got nil")
 	}
@@ -156,10 +166,10 @@ echo "Forwarding from 127.0.0.1:`+port+` -> 8080"; exec sleep 30`)
 	portForwardRetryDelay = 10 * time.Millisecond
 	defer func() { portForwardRetryDelay = restore }()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 
-	body, err := fetchViaPortForward(ctx, testConfig(fake))
+	body, err := fetchViaPortForward(ctx, testOptions(fake))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -188,7 +198,7 @@ func TestFetchViaPortForwardGivesUpWhenKubectlAlwaysFails(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	_, err := fetchViaPortForward(ctx, testConfig(fake))
+	_, err := fetchViaPortForward(ctx, testOptions(fake))
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
