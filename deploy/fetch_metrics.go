@@ -130,11 +130,10 @@ func fetchOnce(ctx context.Context, url string) ([]byte, error) {
 	return body, nil
 }
 
+const maxDelay = 5 * time.Second // package scoped for testing
+
 func backoffDelay(attempt int) time.Duration {
-	const (
-		base     = 500 * time.Millisecond
-		maxDelay = 5 * time.Second
-	)
+	const base = 500 * time.Millisecond
 	d := base << (attempt - 1)
 	if d <= 0 || d > maxDelay {
 		return maxDelay
