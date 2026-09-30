@@ -25,7 +25,9 @@ It also optionally collects each pull attempt's duration and result.
 
 ### `deploy`
 
-- a helper command-line utility for generating `image-prefetcher` manifests,
+- a helper command-line utility for:
+  - generating `image-prefetcher` manifests,
+  - optionally fetching metrics from a finished run.
 - separate go module, with no dependencies outside Go standard library.
 
 ## Usage
@@ -89,12 +91,12 @@ It also optionally collects each pull attempt's duration and result.
 6. If metrics collection was requested, fetch the metrics. The metrics Service is
    `ClusterIP`, so the deploy tool retrieves them via `kubectl port-forward`:
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --fetch-metrics --namespace="${ns}" my-images | jq
+   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --fetch-metrics --namespace=prefetch-images my-images | jq
    ```
 
    Alternatively, port-forward manually and curl the endpoint:
    ```
-   kubectl -n "${ns}" port-forward svc/my-images-metrics :8080
+   kubectl -n prefetch-images port-forward svc/my-images-metrics :8080
    # note the printed local port, then in another shell:
    curl "http://127.0.0.1:${local_port}/metrics" | jq
    ```
