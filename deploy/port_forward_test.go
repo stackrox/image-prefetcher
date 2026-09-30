@@ -84,7 +84,8 @@ func TestStartPortForwardParsesLocalPortAndStops(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	port, cmdWait, err := startPortForward(ctx, testConfig(fake))
-	defer cmdWait()
+	waitDone := make(chan struct{})
+	go func() { cmdWait(); close(waitDone) }()
 	defer cancel()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -93,12 +94,17 @@ func TestStartPortForwardParsesLocalPortAndStops(t *testing.T) {
 		t.Fatalf("expected port 34567, got %d", port)
 	}
 
-	done := make(chan struct{})
-	go func() { cancel(); close(done) }()
+	cancelDone := make(chan struct{})
+	go func() { cancel(); close(cancelDone) }()
 	select {
-	case <-done:
+	case <-cancelDone:
 	case <-time.After(8 * time.Second):
 		t.Fatal("cancel() did not return promptly; kubectl was likely left running")
+	}
+	select {
+	case <-waitDone:
+	case <-time.After(3 * time.Second):
+		t.Fatal("cmdWait did not return promptly; kubectl left running")
 	}
 }
 
