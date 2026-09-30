@@ -65,8 +65,9 @@ func fetchViaPortForward(ctx context.Context, opts fetchOptions) ([]byte, error)
 		}
 		body, err := func() ([]byte, error) {
 			portFwdCtx, portFwdCancel := context.WithTimeout(ctx, opts.onePortFwdTimeout)
-			defer portFwdCancel()
-			localPort, err := startPortForward(portFwdCtx, cfg)
+			localPort, cmdWait, err := startPortForward(portFwdCtx, cfg)
+			defer cmdWait()
+			defer portFwdCancel() // first cancel context, then reap the child, if any
 			if err != nil {
 				return nil, err
 			}

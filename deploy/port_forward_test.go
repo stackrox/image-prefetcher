@@ -83,9 +83,9 @@ func TestStartPortForwardParsesLocalPortAndStops(t *testing.T) {
 	fake := writeFakeKubectl(t, `echo "Forwarding from 127.0.0.1:34567 -> 8080"; exec sleep 30`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	port, cmdWait, err := startPortForward(ctx, testConfig(fake))
+	defer cmdWait()
 	defer cancel()
-
-	port, err := startPortForward(ctx, testConfig(fake))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -108,9 +108,9 @@ func TestStartPortForwardKubectlExitsEarly(t *testing.T) {
 	fake := writeFakeKubectl(t, `echo "error: unable to forward port because pod is not running. Current status=Pending" >&2; exit 1`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	_, cmdWait, err := startPortForward(ctx, testConfig(fake))
+	defer cmdWait()
 	defer cancel()
-
-	_, err := startPortForward(ctx, testConfig(fake))
 	if err == nil {
 		t.Fatal("expected an error, got nil")
 	}
@@ -128,10 +128,10 @@ func TestStartPortForwardTimesOutWhenNeverReady(t *testing.T) {
 	fake := writeFakeKubectl(t, `exec sleep 30`)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
-	defer cancel()
-
 	start := time.Now()
-	_, err := startPortForward(ctx, testConfig(fake))
+	_, cmdWait, err := startPortForward(ctx, testConfig(fake))
+	defer cmdWait()
+	defer cancel()
 	if err == nil {
 		t.Fatal("expected a timeout error, got nil")
 	}

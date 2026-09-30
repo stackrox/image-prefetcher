@@ -34,7 +34,8 @@ var forwardingRe = regexp.MustCompile(`Forwarding from 127\.0\.0\.1:(\d+)`)
 // local port (by passing ":<remotePort>") to avoid ToCToU issues.
 //
 // On success, it returns the chosen local port.
-func startPortForward(ctx context.Context, cfg portForwardConfig) (int, error) {
+// The returned func must be called by the caller after the context is cancelled.
+func startPortForward(ctx context.Context, cfg portForwardConfig) (int, func(), error) {
 	args := []string{"-n", cfg.namespace, "port-forward", cfg.service, fmt.Sprintf(":%d", cfg.remotePort)}
 	if cfg.context != "" {
 		args = append(args, "--context", cfg.context)
@@ -45,13 +46,13 @@ func startPortForward(ctx context.Context, cfg portForwardConfig) (int, error) {
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return 0, fmt.Errorf("obtaining kubectl stdout pipe: %w", err)
+		return 0, func() {}, fmt.Errorf("obtaining kubectl stdout pipe: %w", err)
 	}
 	var stderr syncBuffer
 	cmd.Stderr = &stderr
 
 	if err := cmd.Start(); err != nil {
-		return 0, fmt.Errorf("starting kubectl port-forward: %w", err)
+		return 0, func() {}, fmt.Errorf("starting kubectl port-forward: %w", err)
 	}
 
 	type result struct {
@@ -84,11 +85,11 @@ func startPortForward(ctx context.Context, cfg portForwardConfig) (int, error) {
 	select {
 	case res := <-ready:
 		if res.err != nil {
-			return 0, res.err
+			return 0, func() { _ = cmd.Wait() }, res.err
 		}
-		return res.port, nil
+		return res.port, func() { _ = cmd.Wait() }, nil
 	case <-ctx.Done():
-		return 0, ctx.Err()
+		return 0, func() { _ = cmd.Wait() }, ctx.Err()
 	}
 }
 
