@@ -61,7 +61,7 @@ It also optionally collects each pull attempt's duration and result.
    Example:
   
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --version v0.3.0 --namespace prefetch-images my-images > manifest.yaml
+   go run github.com/stackrox/image-prefetcher/deploy@v0.6.0 --version v0.6.0 --namespace prefetch-images my-images > manifest.yaml
    ```
 
 2. Prepare an image list. This should be a plain text file with one image name per line.
@@ -91,7 +91,7 @@ It also optionally collects each pull attempt's duration and result.
 6. If metrics collection was requested, fetch the metrics. The metrics Service is
    `ClusterIP`, so the deploy tool retrieves them via `kubectl port-forward`:
    ```
-   go run github.com/stackrox/image-prefetcher/deploy@v0.3.0 --fetch-metrics --namespace=prefetch-images my-images | jq
+   go run github.com/stackrox/image-prefetcher/deploy@v0.6.0 --fetch-metrics --namespace=prefetch-images my-images | jq
    ```
 
    Alternatively, port-forward manually and curl the endpoint:
